@@ -231,4 +231,50 @@ void main() {
     expect(service.isSyncing(_bbsKeyHex), isFalse);
     expect(radio.received, ['!h', '!x 0 0']);
   });
+
+  group('post', () {
+    test('a confirmed post returns its id and stays out of the chat', () async {
+      final chatBefore = chatTexts();
+      radio.replies['!p U Dijk lekt'] = ['Posted #14 [URGENT]: Dijk lekt'];
+      final outcome = await service.post(bbs, 'U', 'Dijk lekt');
+      expect(outcome.result, BbsPostResult.posted);
+      expect(outcome.id, 14);
+      expect(radio.received, ['!p U Dijk lekt']);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(chatTexts(), chatBefore);
+    });
+
+    test('an error reply is passed on', () async {
+      const reply = "Unknown category 'X'. Valid: U=URGENT";
+      radio.replies['!p X hoi'] = [reply];
+      final outcome = await service.post(bbs, 'X', 'hoi');
+      expect(outcome.result, BbsPostResult.rejected);
+      expect(outcome.reply, reply);
+    });
+
+    test('without confirmation the post is not sent again', () async {
+      service.replyTimeout = const Duration(milliseconds: 50);
+      final outcome = await service.post(bbs, 'U', 'hoi');
+      expect(outcome.result, BbsPostResult.noReply);
+      expect(radio.received, ['!p U hoi']);
+    });
+
+    test('line breaks are sent as spaces', () async {
+      radio.replies['!p U regel 1 regel 2'] = ['Posted #3 [URGENT]: x'];
+      final outcome = await service.post(bbs, 'U', ' regel 1\n\nregel 2 \n');
+      expect(outcome.result, BbsPostResult.posted);
+      expect(radio.received, ['!p U regel 1 regel 2']);
+    });
+
+    test('no post while a sync runs', () async {
+      radio.replies
+        ..['!h'] = guiHelp
+        ..['!x 0 0'] = guiSync131;
+      final sync = service.sync(bbs);
+      final outcome = await service.post(bbs, 'U', 'hoi');
+      expect(outcome.result, BbsPostResult.failed);
+      await sync;
+      expect(radio.received, ['!h', '!x 0 0']);
+    });
+  });
 }

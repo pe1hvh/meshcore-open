@@ -12,7 +12,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "cs": [
@@ -28,7 +35,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "de": [
@@ -44,7 +58,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "es": [
@@ -60,7 +81,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "fr": [
@@ -76,7 +104,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "hu": [
@@ -92,7 +127,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "it": [
@@ -108,7 +150,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "ja": [
@@ -124,7 +173,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "ko": [
@@ -140,7 +196,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "pl": [
@@ -156,7 +219,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "pt": [
@@ -172,7 +242,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "pt_PT": [
@@ -188,7 +265,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "ru": [
@@ -204,7 +288,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "sk": [
@@ -220,7 +311,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "sl": [
@@ -236,7 +334,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "sv": [
@@ -252,7 +357,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "uk": [
@@ -268,7 +380,14 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ],
 
   "zh": [
@@ -284,6 +403,13 @@
     "bbs_noReplyTitle",
     "bbs_noReplySubtitle",
     "bbs_failed",
-    "bbs_incomplete"
+    "bbs_incomplete",
+    "bbs_post",
+    "bbs_postTitle",
+    "bbs_postCategory",
+    "bbs_postMessage",
+    "bbs_posted",
+    "bbs_postRejected",
+    "bbs_postNoReply"
   ]
 }

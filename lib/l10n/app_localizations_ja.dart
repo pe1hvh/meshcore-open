@@ -7189,4 +7189,28 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get bbs_incomplete =>
       'Not all messages arrived. Check again to fetch the rest.';
+
+  @override
+  String get bbs_post => 'Post';
+
+  @override
+  String get bbs_postTitle => 'Post to the BBS';
+
+  @override
+  String get bbs_postCategory => 'Category';
+
+  @override
+  String get bbs_postMessage => 'Message';
+
+  @override
+  String get bbs_posted => 'Message posted';
+
+  @override
+  String bbs_postRejected(String reply) {
+    return 'The BBS did not accept the message: $reply';
+  }
+
+  @override
+  String get bbs_postNoReply =>
+      'No confirmation from the BBS. After the next sync you can see whether the message arrived.';
 }

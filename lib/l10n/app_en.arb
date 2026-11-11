@@ -4333,5 +4333,23 @@
     "description": "Keep !bbs untranslated: it is the command the BBS expects"
   },
   "bbs_failed": "Could not sync with the BBS",
-  "bbs_incomplete": "Not all messages arrived. Check again to fetch the rest."
+  "bbs_incomplete": "Not all messages arrived. Check again to fetch the rest.",
+  "bbs_post": "Post",
+  "@bbs_post": {
+    "description": "BBS screen button and dialog action that posts a message to the board"
+  },
+  "bbs_postTitle": "Post to the BBS",
+  "bbs_postCategory": "Category",
+  "bbs_postMessage": "Message",
+  "bbs_posted": "Message posted",
+  "bbs_postRejected": "The BBS did not accept the message: {reply}",
+  "@bbs_postRejected": {
+    "description": "reply is the BBS's own (English) error text",
+    "placeholders": {
+      "reply": {
+        "type": "String"
+      }
+    }
+  },
+  "bbs_postNoReply": "No confirmation from the BBS. After the next sync you can see whether the message arrived."
 }

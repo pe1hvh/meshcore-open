@@ -3690,5 +3690,12 @@
   "bbs_noReplyTitle": "Geen antwoord van de BBS",
   "bbs_noReplySubtitle": "Mogelijk sta je nog niet op de whitelist: stuur !⁠bbs op het kanaal waaraan de BBS gekoppeld is. Of de BBS is buiten bereik.",
   "bbs_failed": "Synchroniseren met de BBS is mislukt",
-  "bbs_incomplete": "Niet alle berichten zijn binnengekomen. Haal opnieuw op voor de rest."
+  "bbs_incomplete": "Niet alle berichten zijn binnengekomen. Haal opnieuw op voor de rest.",
+  "bbs_post": "Plaatsen",
+  "bbs_postTitle": "Bericht op de BBS plaatsen",
+  "bbs_postCategory": "Categorie",
+  "bbs_postMessage": "Bericht",
+  "bbs_posted": "Bericht geplaatst",
+  "bbs_postRejected": "De BBS heeft het bericht niet geaccepteerd: {reply}",
+  "bbs_postNoReply": "Geen bevestiging van de BBS. Na het synchroniseren zie je of het bericht is aangekomen."
 }

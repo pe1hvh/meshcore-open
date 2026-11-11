@@ -25,7 +25,29 @@ enum BbsSyncResult {
   failed,
 }
 
-enum _ReplyKind { help, sync }
+enum BbsPostResult {
+  /// The BBS stored the message; [BbsPostOutcome.id] holds its id.
+  posted,
+
+  /// The BBS answered with an error; [BbsPostOutcome.reply] holds its text.
+  rejected,
+
+  /// No confirmation: the message may or may not have been stored.
+  noReply,
+
+  /// The radio is not connected, or a sync of this BBS is running.
+  failed,
+}
+
+class BbsPostOutcome {
+  const BbsPostOutcome(this.result, {this.id, this.reply});
+
+  final BbsPostResult result;
+  final int? id;
+  final String? reply;
+}
+
+enum _ReplyKind { help, sync, post }
 
 /// Collects the DMs of one reply. The BBS sends the next DM only after the
 /// ACK of the previous one, so parts arrive in order.
@@ -46,6 +68,9 @@ class _PendingReply {
   String get text => chunks.join('\n');
 
   bool accepts(String chunk) {
+    if (kind == _ReplyKind.post) {
+      return chunks.isEmpty && _postReply.hasMatch(chunk);
+    }
     if (kind == _ReplyKind.help) {
       return chunks.isNotEmpty || chunk.split('\n').first.trim() == 'BBS';
     }
@@ -57,6 +82,9 @@ class _PendingReply {
   }
 
   static final RegExp _syncLine = RegExp(r'^(?:[0-9+\-]|R\|)');
+  static final RegExp _postReply = RegExp(
+    r'^(?:Posted #|Usage: !p|Unknown category)',
+  );
 
   void add(String chunk) {
     chunks.add(chunk);
@@ -69,6 +97,7 @@ class _PendingReply {
   }
 
   bool _isComplete() {
+    if (kind == _ReplyKind.post) return true;
     if (kind == _ReplyKind.help) {
       return BbsProtocol.parseHelp(text)?.isNotEmpty ?? false;
     }
@@ -133,6 +162,7 @@ class BbsSyncService extends ChangeNotifier {
   final Map<String, Set<String>> _lastSeen = {};
   final Map<String, Future<BbsSyncResult>> _running = {};
   final Map<String, BbsSyncResult> _lastResult = {};
+  final Set<String> _posting = {};
 
   BbsStore get store => _store;
 
@@ -145,6 +175,49 @@ class BbsSyncService extends ChangeNotifier {
 
   bool isSyncing(String bbsKey) => _running.containsKey(bbsKey);
 
+  bool isPosting(String bbsKey) => _posting.contains(bbsKey);
+
+  /// Posts [text] in the category with [abbreviation] with `!p`. Sent once:
+  /// `!p` is not idempotent, so a lost confirmation must not lead to a
+  /// second copy. Line breaks are sent as spaces, as the BBS shows them.
+  Future<BbsPostOutcome> post(
+    Contact bbs,
+    String abbreviation,
+    String text,
+  ) async {
+    final key = bbs.publicKeyHex;
+    if (isSyncing(key) || isPosting(key)) {
+      return const BbsPostOutcome(BbsPostResult.failed);
+    }
+    _posting.add(key);
+    notifyListeners();
+    try {
+      final reply = await _request(
+        bbs,
+        BbsProtocol.postCommand(abbreviation, postText(text)),
+        _ReplyKind.post,
+        attempts: 1,
+      );
+      if (reply == null) return const BbsPostOutcome(BbsPostResult.noReply);
+      final id = BbsProtocol.parsePostedId(reply);
+      return id == null
+          ? BbsPostOutcome(BbsPostResult.rejected, reply: reply)
+          : BbsPostOutcome(BbsPostResult.posted, id: id, reply: reply);
+    } on RadioNotConnectedException {
+      return const BbsPostOutcome(BbsPostResult.failed);
+    } on Exception catch (error) {
+      appLogger.warn('BBS post failed: $error', tag: 'BBS');
+      return const BbsPostOutcome(BbsPostResult.failed);
+    } finally {
+      _posting.remove(key);
+      notifyListeners();
+    }
+  }
+
+  /// [text] as `!p` sends it: one line, trimmed.
+  static String postText(String text) =>
+      text.split(RegExp(r'[\r\n]+')).map((l) => l.trim()).join(' ').trim();
+
   BbsSyncResult? lastResult(String bbsKey) => _lastResult[bbsKey];
 
   /// Fetches new messages from [bbs]. Categories are fetched with `!h` when
@@ -155,6 +228,7 @@ class BbsSyncService extends ChangeNotifier {
     final key = bbs.publicKeyHex;
     final running = _running[key];
     if (running != null) return running;
+    if (isPosting(key)) return Future.value(BbsSyncResult.failed);
     final future = _sync(bbs, refreshCategories)
         .then((result) => _lastResult[key] = result)
         .whenComplete(() {
@@ -240,15 +314,20 @@ class BbsSyncService extends ChangeNotifier {
     );
   }
 
-  /// Sends [command] up to [maxAttempts] times and returns the reply text
+  /// Sends [command] up to [attempts] times and returns the reply text
   /// (all parts joined with `\n`, possibly partial), or `null` when no part
   /// arrived.
-  Future<String?> _request(Contact bbs, String command, _ReplyKind kind) async {
+  Future<String?> _request(
+    Contact bbs,
+    String command,
+    _ReplyKind kind, {
+    int attempts = maxAttempts,
+  }) async {
     final key = bbs.publicKeyHex;
     final pending = _PendingReply(kind);
     _pending[key] = pending;
     try {
-      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      for (var attempt = 0; attempt < attempts; attempt++) {
         final timeout = await _send(bbs, command, attempt);
         final reply = await pending.wait(timeout, timeout * partTimeoutFactor);
         if (reply != null) return reply;

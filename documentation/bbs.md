@@ -13,9 +13,15 @@ The screen sends `!h` to fetch the categories, then `!x` to fetch new messages. 
 
 Pull down on any tab, or tap ↻, to check for new messages. Only messages newer than the newest one in the local copy are fetched; messages deleted by the BBS operator are removed from the copy too.
 
+## Posting
+
+Tap **Post**, choose a category (the open tab's category is preselected) and write the message. The counter shows the bytes of the whole `!p` command, which must fit in one DM. Line breaks are sent as spaces, as the BBS shows them.
+
+The app sends `!p` once and does not retry: a second try after a lost confirmation would post the message twice. After **Message posted**, or when no confirmation came, the app syncs so the message appears with the id the BBS gave it. When the BBS refuses the message, its own (English) reply is shown.
+
 ## No reply
 
-When the BBS does not answer after three tries, the screen shows **No reply from the BBS**. Usually you are not on its whitelist yet: send `!bbs` on the channel the BBS is linked to, then retry. The BBS may also be out of reach.
+When the BBS does not answer after three tries, the screen shows **No reply from the BBS**. Usually you are not on its whitelist yet: send `!bbs` yourself in the channel chat of the channel the BBS is linked to (ask the BBS operator which one), then retry. The BBS only answers senders on its whitelist, and only knows you after it heard your advert. It may also be out of reach.
 
 ## Retention
 
@@ -30,4 +36,3 @@ Without a radio the stored board stays readable; checking for new messages needs
 - Replies to `!h` and `!x` are taken out of the chat: they do not appear as messages, raise the unread count or show a notification. Other DMs from the BBS node reach the chat as usual.
 - A reply may span several DMs. The `!x` header announces its number of lines; a reply cut short is resumed from the last complete message at the next sync.
 - The copy is stored per radio and per BBS node in `bbs_v1.db`, next to the history database.
-- Posting from the app and the whitelist bootstrap are not available yet.

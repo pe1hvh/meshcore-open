@@ -7503,4 +7503,28 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get bbs_incomplete =>
       'Niet alle berichten zijn binnengekomen. Haal opnieuw op voor de rest.';
+
+  @override
+  String get bbs_post => 'Plaatsen';
+
+  @override
+  String get bbs_postTitle => 'Bericht op de BBS plaatsen';
+
+  @override
+  String get bbs_postCategory => 'Categorie';
+
+  @override
+  String get bbs_postMessage => 'Bericht';
+
+  @override
+  String get bbs_posted => 'Bericht geplaatst';
+
+  @override
+  String bbs_postRejected(String reply) {
+    return 'De BBS heeft het bericht niet geaccepteerd: $reply';
+  }
+
+  @override
+  String get bbs_postNoReply =>
+      'Geen bevestiging van de BBS. Na het synchroniseren zie je of het bericht is aangekomen.';
 }

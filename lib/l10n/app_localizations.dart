@@ -12591,6 +12591,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not all messages arrived. Check again to fetch the rest.'**
   String get bbs_incomplete;
+
+  /// BBS screen button and dialog action that posts a message to the board
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get bbs_post;
+
+  /// No description provided for @bbs_postTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Post to the BBS'**
+  String get bbs_postTitle;
+
+  /// No description provided for @bbs_postCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get bbs_postCategory;
+
+  /// No description provided for @bbs_postMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get bbs_postMessage;
+
+  /// No description provided for @bbs_posted.
+  ///
+  /// In en, this message translates to:
+  /// **'Message posted'**
+  String get bbs_posted;
+
+  /// reply is the BBS's own (English) error text
+  ///
+  /// In en, this message translates to:
+  /// **'The BBS did not accept the message: {reply}'**
+  String bbs_postRejected(String reply);
+
+  /// No description provided for @bbs_postNoReply.
+  ///
+  /// In en, this message translates to:
+  /// **'No confirmation from the BBS. After the next sync you can see whether the message arrived.'**
+  String get bbs_postNoReply;
 }
 
 class _AppLocalizationsDelegate

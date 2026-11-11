@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -10,7 +11,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:meshcore_open/connector/meshcore_connector.dart';
 import 'package:meshcore_open/connector/meshcore_protocol.dart';
 import 'package:meshcore_open/l10n/app_localizations.dart';
+import 'package:meshcore_open/models/bbs_board.dart';
 import 'package:meshcore_open/models/contact.dart';
+import 'package:meshcore_open/models/path_selection.dart';
 import 'package:meshcore_open/screens/bbs_screen.dart';
 import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
 import 'package:meshcore_open/services/bbs/bbs_sync_service.dart';
@@ -30,6 +33,35 @@ const _bbsKey =
 class _OfflineConnector extends MeshCoreConnector {
   @override
   String get selfPublicKeyHex => _selfKey;
+}
+
+/// A connected radio that records the DM texts the app sends and never
+/// answers, so a sync or post ends without reply.
+class _SilentConnector extends _OfflineConnector {
+  final List<String> sent = [];
+
+  @override
+  bool get isConnected => true;
+
+  @override
+  Future<PathSelection> preparePathForContactSend(Contact contact) async =>
+      const PathSelection(pathBytes: [], hopCount: 0, useFlood: false);
+
+  @override
+  Future<void> sendFrame(
+    Uint8List data, {
+    String? channelSendQueueId,
+    bool expectsGenericAck = false,
+    bool waitForGenericAck = false,
+  }) async {
+    if (data.isNotEmpty && data[0] == cmdSendTxtMsg) {
+      var end = data.length;
+      while (end > 13 && data[end - 1] == 0) {
+        end--;
+      }
+      sent.add(utf8.decode(data.sublist(13, end)));
+    }
+  }
 }
 
 Contact _contact() => Contact(
@@ -55,7 +87,12 @@ void main() {
     connector = _OfflineConnector();
   });
 
-  Future<void> open(WidgetTester tester, {bool withBoard = true}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    bool withBoard = true,
+    _OfflineConnector? radio,
+  }) async {
+    if (radio != null) connector = radio;
     await tester.runAsync(() async {
       store = await SqliteBbsStore.open(
         inMemoryDatabasePath,
@@ -78,7 +115,8 @@ void main() {
         }
       }
     });
-    service = BbsSyncService(connector, store);
+    service = BbsSyncService(connector, store)
+      ..replyTimeout = const Duration(milliseconds: 10);
     addTearDown(() async {
       service.dispose();
       await tester.runAsync(store.close);
@@ -197,5 +235,45 @@ void main() {
     );
     expect(withService, isTrue);
     expect(without, isFalse);
+  });
+
+  testWidgets('offline there is no Post button', (tester) async {
+    await open(tester);
+    expect(find.byType(FloatingActionButton), findsNothing);
+  });
+
+  testWidgets('Post sends !p in the category of the open tab', (tester) async {
+    final radio = _SilentConnector();
+    await open(tester, radio: radio);
+    await tester.tap(find.widgetWithText(Tab, 'STATUS'));
+    await tester.pumpAndSettle();
+    radio.sent.clear();
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Post to the BBS'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DropdownButtonFormField<BbsCategory>),
+        matching: find.text('STATUS'),
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byType(TextField), 'Repeater Hattem\nonline');
+    await tester.pump();
+    // "!p S Repeater Hattem online" is 27 bytes.
+    expect(find.text('27 / ${maxContactMessageBytes()}'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Post'));
+    final noConfirmation = find.textContaining('No confirmation from the BBS');
+    for (var i = 0; i < 20 && noConfirmation.evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(radio.sent.first, '!p S Repeater Hattem online');
+    expect(noConfirmation, findsOneWidget);
+    // The sync that follows does not post again.
+    await tester.pumpAndSettle();
+    expect(radio.sent.where((t) => t.startsWith('!p')), hasLength(1));
+    expect(radio.sent.skip(1), everyElement(startsWith('!x')));
   });
 }

@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../connector/meshcore_connector.dart';
+import '../connector/meshcore_protocol.dart';
+import '../helpers/utf8_length_limiter.dart';
 import '../helpers/snack_bar_builder.dart';
 import '../l10n/l10n.dart';
 import '../models/bbs_board.dart';
 import '../models/bbs_message.dart';
 import '../models/contact.dart';
+import '../services/bbs/bbs_protocol.dart';
 import '../services/bbs/bbs_sync_service.dart';
 import '../utils/radio_guard.dart';
 import '../widgets/adaptive_app_bar_title.dart';
@@ -78,7 +82,12 @@ class _BbsScreenState extends State<BbsScreen> {
     });
   }
 
-  Future<void> _sync({bool refreshCategories = false}) async {
+  /// With [quiet] the result is not reported, so the message of the action
+  /// that started this sync stays visible.
+  Future<void> _sync({
+    bool refreshCategories = false,
+    bool quiet = false,
+  }) async {
     final connector = context.read<MeshCoreConnector>();
     if (!ensureRadioConnected(context)) return;
     final contact = connector.contacts.firstWhere(
@@ -91,7 +100,7 @@ class _BbsScreenState extends State<BbsScreen> {
     );
     if (!mounted) return;
     await _load();
-    if (!mounted) return;
+    if (!mounted || quiet) return;
     final hasBoard = _board?.categories.isNotEmpty ?? false;
     final message = switch (result) {
       BbsSyncResult.done => null,
@@ -104,19 +113,55 @@ class _BbsScreenState extends State<BbsScreen> {
     }
   }
 
+  Future<void> _post(BbsCategory initial) async {
+    final draft = await showDialog<(BbsCategory, String)>(
+      context: context,
+      builder: (context) =>
+          _BbsPostDialog(categories: _board!.categories, initial: initial),
+    );
+    if (draft == null || !mounted || !ensureRadioConnected(context)) return;
+    final connector = context.read<MeshCoreConnector>();
+    final contact = connector.contacts.firstWhere(
+      (c) => c.publicKeyHex == _bbsKey,
+      orElse: () => widget.contact,
+    );
+    final outcome = await context.read<BbsSyncService?>()!.post(
+      contact,
+      draft.$1.abbreviation,
+      draft.$2,
+    );
+    if (!mounted) return;
+    final message = switch (outcome.result) {
+      BbsPostResult.posted => context.l10n.bbs_posted,
+      BbsPostResult.rejected => context.l10n.bbs_postRejected(
+        outcome.reply ?? '',
+      ),
+      BbsPostResult.noReply => context.l10n.bbs_postNoReply,
+      BbsPostResult.failed => context.l10n.bbs_failed,
+    };
+    showDismissibleSnackBar(context, content: Text(message));
+    if (outcome.result == BbsPostResult.posted ||
+        outcome.result == BbsPostResult.noReply) {
+      await _sync(quiet: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = context.watch<BbsSyncService?>()!;
     final readOnly = context.radioReadOnly;
     final syncing = service.isSyncing(_bbsKey);
+    final posting = service.isPosting(_bbsKey);
     final categories = _board?.categories ?? const <BbsCategory>[];
     final title = AdaptiveAppBarTitle(
       context.l10n.bbs_title(widget.contact.name),
     );
     final refresh = IconButton(
       tooltip: context.l10n.bbs_sync,
-      onPressed: readOnly || syncing ? null : () => unawaited(_sync()),
-      icon: syncing
+      onPressed: readOnly || syncing || posting
+          ? null
+          : () => unawaited(_sync()),
+      icon: syncing || posting
           ? const SizedBox(
               width: 18,
               height: 18,
@@ -148,6 +193,23 @@ class _BbsScreenState extends State<BbsScreen> {
             ],
           ),
         ),
+        floatingActionButton: readOnly
+            ? null
+            : Builder(
+                builder: (context) => FloatingActionButton.extended(
+                  tooltip: context.l10n.bbs_postTitle,
+                  onPressed: syncing || posting
+                      ? null
+                      : () {
+                          // The category of the open tab; the All tab
+                          // starts with the first category.
+                          final tab = DefaultTabController.of(context).index;
+                          unawaited(_post(categories[tab == 0 ? 0 : tab - 1]));
+                        },
+                  icon: const Icon(Icons.edit_outlined),
+                  label: Text(context.l10n.bbs_post),
+                ),
+              ),
         body: SafeArea(
           top: false,
           child: TabBarView(
@@ -207,7 +269,8 @@ class _BbsScreenState extends State<BbsScreen> {
       child: LayoutBuilder(
         builder: (context, constraints) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 16),
+          // Room for the Post button below the last message.
+          padding: EdgeInsets.only(bottom: readOnly ? 16 : 88),
           children: [
             if (retention != null) _RetentionLabel(days: retention),
             if (messages.isEmpty)
@@ -304,6 +367,107 @@ class _BbsMessageCard extends StatelessWidget {
           SelectableText(message.text, style: theme.textTheme.bodyMedium),
         ],
       ),
+    );
+  }
+}
+
+/// Category choice and text for one `!p`. Returns the chosen category and
+/// the text, or `null` when cancelled.
+class _BbsPostDialog extends StatefulWidget {
+  const _BbsPostDialog({required this.categories, required this.initial});
+
+  final List<BbsCategory> categories;
+  final BbsCategory initial;
+
+  @override
+  State<_BbsPostDialog> createState() => _BbsPostDialogState();
+}
+
+class _BbsPostDialogState extends State<_BbsPostDialog> {
+  late BbsCategory _category = widget.initial;
+  final TextEditingController _text = TextEditingController();
+
+  /// Bytes the whole `!p` command takes in one DM.
+  int _bytes(String text) => utf8
+      .encode(
+        BbsProtocol.postCommand(
+          _category.abbreviation,
+          BbsSyncService.postText(text),
+        ),
+      )
+      .length;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final limit = maxContactMessageBytes();
+    final text = _text.text;
+    final used = _bytes(text);
+    final canPost = BbsSyncService.postText(text).isNotEmpty && used <= limit;
+    return AlertDialog(
+      title: Text(context.l10n.bbs_postTitle),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<BbsCategory>(
+              initialValue: _category,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: context.l10n.bbs_postCategory,
+              ),
+              items: [
+                for (final category in widget.categories)
+                  DropdownMenuItem(
+                    value: category,
+                    child: Text(category.name, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _category = value);
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _text,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 5,
+              decoration: InputDecoration(
+                labelText: context.l10n.bbs_postMessage,
+                counterText: '$used / $limit',
+              ),
+              inputFormatters: [
+                Utf8LengthLimitingTextInputFormatter(
+                  limit,
+                  encoder: (value) => BbsProtocol.postCommand(
+                    _category.abbreviation,
+                    BbsSyncService.postText(value),
+                  ),
+                ),
+              ],
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.l10n.common_cancel),
+        ),
+        FilledButton(
+          onPressed: canPost
+              ? () => Navigator.pop(context, (_category, text))
+              : null,
+          child: Text(context.l10n.bbs_post),
+        ),
+      ],
     );
   }
 }
