@@ -7517,7 +7517,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get bbs_postMessage => 'Bericht';
 
   @override
-  String get bbs_posted => 'Bericht geplaatst';
+  String bbs_posted(int id) {
+    return 'Bericht #$id geplaatst';
+  }
 
   @override
   String bbs_postRejected(String reply) {
@@ -7527,4 +7529,7 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get bbs_postNoReply =>
       'Geen bevestiging van de BBS. Na het synchroniseren zie je of het bericht is aangekomen.';
+
+  @override
+  String get bbs_showNumbers => 'Berichtnummers tonen';
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -13,6 +14,7 @@ import 'package:meshcore_open/connector/meshcore_protocol.dart';
 import 'package:meshcore_open/l10n/app_localizations.dart';
 import 'package:meshcore_open/models/bbs_board.dart';
 import 'package:meshcore_open/models/contact.dart';
+import 'package:meshcore_open/models/message.dart';
 import 'package:meshcore_open/models/path_selection.dart';
 import 'package:meshcore_open/screens/bbs_screen.dart';
 import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
@@ -61,6 +63,41 @@ class _SilentConnector extends _OfflineConnector {
       }
       sent.add(utf8.decode(data.sublist(13, end)));
     }
+  }
+}
+
+/// A connected radio on which the BBS confirms every `!p` with [postedId].
+class _ConfirmingConnector extends _SilentConnector {
+  _ConfirmingConnector(this.postedId);
+
+  final int postedId;
+  final List<bool Function(Message message)> _interceptors = [];
+
+  @override
+  void addContactMessageInterceptor(
+    bool Function(Message message) interceptor,
+  ) => _interceptors.add(interceptor);
+
+  @override
+  Future<void> sendFrame(
+    Uint8List data, {
+    String? channelSendQueueId,
+    bool expectsGenericAck = false,
+    bool waitForGenericAck = false,
+  }) async {
+    await super.sendFrame(data);
+    if (!sent.last.startsWith('!p')) return;
+    final reply = Message(
+      senderKey: hexToPubKey(_bbsKey),
+      text: 'Posted #$postedId [URGENT]: x',
+      timestamp: DateTime(2026),
+      isOutgoing: false,
+    );
+    scheduleMicrotask(() {
+      for (final claims in _interceptors) {
+        claims(reply);
+      }
+    });
   }
 }
 
@@ -275,5 +312,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(radio.sent.where((t) => t.startsWith('!p')), hasLength(1));
     expect(radio.sent.skip(1), everyElement(startsWith('!x')));
+  });
+
+  testWidgets('a confirmed post shows its number on green', (tester) async {
+    await open(tester, radio: _ConfirmingConnector(14));
+    ScaffoldMessenger.of(tester.element(find.byType(TabBar))).clearSnackBars();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Dijk lekt');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Post'));
+    final posted = find.text('Message #14 posted');
+    for (var i = 0; i < 20 && posted.evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(posted, findsOneWidget);
+    final bar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(bar.backgroundColor, MeshPalette.signal);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('message numbers are off until switched on, and remembered', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(find.textContaining('#13'), findsNothing);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show message numbers'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('#13  PE1HVH'), findsOneWidget);
+    expect(PrefsManager.instance.getBool(bbsShowNumbersKey), isTrue);
   });
 }

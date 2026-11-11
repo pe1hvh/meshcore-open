@@ -14,11 +14,20 @@ import '../models/bbs_message.dart';
 import '../models/contact.dart';
 import '../services/bbs/bbs_protocol.dart';
 import '../services/bbs/bbs_sync_service.dart';
+import '../storage/prefs_manager.dart';
+import '../theme/mesh_theme.dart';
 import '../utils/radio_guard.dart';
 import '../widgets/adaptive_app_bar_title.dart';
 import '../widgets/chat_day_separator.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/mesh_ui.dart';
+
+/// Preference: show each message's BBS id, so people can refer to it.
+const String bbsShowNumbersKey = 'bbs_show_message_numbers';
+
+/// Text on [MeshPalette.signal], the green of a successful post; white
+/// text is not readable on it.
+const Color _onSignal = Color(0xFF052E16);
 
 /// Whether the BBS is supported here: not on web, where there is no store,
 /// and not in a widget tree built without the sync service.
@@ -47,6 +56,7 @@ class _BbsScreenState extends State<BbsScreen> {
   BbsBoard? _board;
   List<BbsMessage> _messages = const [];
   bool _loaded = false;
+  bool _showNumbers = PrefsManager.instance.getBool(bbsShowNumbersKey) ?? false;
 
   String get _bbsKey => widget.contact.publicKeyHex;
 
@@ -131,15 +141,31 @@ class _BbsScreenState extends State<BbsScreen> {
       draft.$2,
     );
     if (!mounted) return;
-    final message = switch (outcome.result) {
-      BbsPostResult.posted => context.l10n.bbs_posted,
-      BbsPostResult.rejected => context.l10n.bbs_postRejected(
-        outcome.reply ?? '',
-      ),
-      BbsPostResult.noReply => context.l10n.bbs_postNoReply,
-      BbsPostResult.failed => context.l10n.bbs_failed,
-    };
-    showDismissibleSnackBar(context, content: Text(message));
+    if (outcome.result == BbsPostResult.posted) {
+      showDismissibleSnackBar(
+        context,
+        backgroundColor: MeshPalette.signal,
+        content: Text(
+          context.l10n.bbs_posted(outcome.id!),
+          style: const TextStyle(
+            color: _onSignal,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    } else {
+      showDismissibleSnackBar(
+        context,
+        content: Text(switch (outcome.result) {
+          BbsPostResult.rejected => context.l10n.bbs_postRejected(
+            outcome.reply ?? '',
+          ),
+          BbsPostResult.noReply => context.l10n.bbs_postNoReply,
+          _ => context.l10n.bbs_failed,
+        }),
+      );
+    }
     if (outcome.result == BbsPostResult.posted ||
         outcome.result == BbsPostResult.noReply) {
       await _sync(quiet: true);
@@ -183,7 +209,32 @@ class _BbsScreenState extends State<BbsScreen> {
         appBar: AppBar(
           title: title,
           centerTitle: true,
-          actions: [refresh],
+          actions: [
+            refresh,
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (_) {
+                setState(() => _showNumbers = !_showNumbers);
+                unawaited(
+                  PrefsManager.instance.setBool(
+                    bbsShowNumbersKey,
+                    _showNumbers,
+                  ),
+                );
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'numbers',
+                  child: MeshMenuItemRow(
+                    icon: _showNumbers
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                    label: context.l10n.bbs_showNumbers,
+                  ),
+                ),
+              ],
+            ),
+          ],
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
@@ -287,6 +338,7 @@ class _BbsScreenState extends State<BbsScreen> {
                 _BbsMessageCard(
                   message: message,
                   showCategory: category == null,
+                  showNumber: _showNumbers,
                 ),
           ],
         ),
@@ -326,10 +378,15 @@ class _RetentionLabel extends StatelessWidget {
 }
 
 class _BbsMessageCard extends StatelessWidget {
-  const _BbsMessageCard({required this.message, required this.showCategory});
+  const _BbsMessageCard({
+    required this.message,
+    required this.showCategory,
+    required this.showNumber,
+  });
 
   final BbsMessage message;
   final bool showCategory;
+  final bool showNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -349,8 +406,21 @@ class _BbsMessageCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 12,
             children: [
-              Text(
-                message.sender,
+              Text.rich(
+                TextSpan(
+                  children: [
+                    if (showNumber)
+                      TextSpan(
+                        text: '#${message.id}  ',
+                        style: MeshTheme.mono(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    TextSpan(text: message.sender),
+                  ],
+                ),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),

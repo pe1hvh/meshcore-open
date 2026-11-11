@@ -12619,8 +12619,8 @@ abstract class AppLocalizations {
   /// No description provided for @bbs_posted.
   ///
   /// In en, this message translates to:
-  /// **'Message posted'**
-  String get bbs_posted;
+  /// **'Message #{id} posted'**
+  String bbs_posted(int id);
 
   /// reply is the BBS's own (English) error text
   ///
@@ -12633,6 +12633,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No confirmation from the BBS. After the next sync you can see whether the message arrived.'**
   String get bbs_postNoReply;
+
+  /// BBS screen menu switch that shows each message's BBS id (#14), so people can refer to a message
+  ///
+  /// In en, this message translates to:
+  /// **'Show message numbers'**
+  String get bbs_showNumbers;
 }
 
 class _AppLocalizationsDelegate

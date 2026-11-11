@@ -4341,7 +4341,8 @@
   "bbs_postTitle": "Post to the BBS",
   "bbs_postCategory": "Category",
   "bbs_postMessage": "Message",
-  "bbs_posted": "Message posted",
+  "bbs_posted": "Message #{id} posted",
+  "@bbs_posted": {"placeholders": {"id": {"type": "int"}}},
   "bbs_postRejected": "The BBS did not accept the message: {reply}",
   "@bbs_postRejected": {
     "description": "reply is the BBS's own (English) error text",
@@ -4351,5 +4352,7 @@
       }
     }
   },
-  "bbs_postNoReply": "No confirmation from the BBS. After the next sync you can see whether the message arrived."
+  "bbs_postNoReply": "No confirmation from the BBS. After the next sync you can see whether the message arrived.",
+  "bbs_showNumbers": "Show message numbers",
+  "@bbs_showNumbers": {"description": "BBS screen menu switch that shows each message's BBS id (#14), so people can refer to a message"}
 }

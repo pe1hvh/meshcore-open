@@ -7494,7 +7494,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get bbs_postMessage => 'Message';
 
   @override
-  String get bbs_posted => 'Message posted';
+  String bbs_posted(int id) {
+    return 'Message #$id posted';
+  }
 
   @override
   String bbs_postRejected(String reply) {
@@ -7504,4 +7506,7 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get bbs_postNoReply =>
       'No confirmation from the BBS. After the next sync you can see whether the message arrived.';
+
+  @override
+  String get bbs_showNumbers => 'Show message numbers';
 }

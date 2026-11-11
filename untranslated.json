@@ -19,7 +19,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "cs": [
@@ -42,7 +43,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "de": [
@@ -65,7 +67,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "es": [
@@ -88,7 +91,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "fr": [
@@ -111,7 +115,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "hu": [
@@ -134,7 +139,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "it": [
@@ -157,7 +163,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "ja": [
@@ -180,7 +187,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "ko": [
@@ -203,7 +211,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "pl": [
@@ -226,7 +235,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "pt": [
@@ -249,7 +259,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "pt_PT": [
@@ -272,7 +283,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "ru": [
@@ -295,7 +307,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "sk": [
@@ -318,7 +331,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "sl": [
@@ -341,7 +355,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "sv": [
@@ -364,7 +379,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "uk": [
@@ -387,7 +403,8 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ],
 
   "zh": [
@@ -410,6 +427,7 @@
     "bbs_postMessage",
     "bbs_posted",
     "bbs_postRejected",
-    "bbs_postNoReply"
+    "bbs_postNoReply",
+    "bbs_showNumbers"
   ]
 }
