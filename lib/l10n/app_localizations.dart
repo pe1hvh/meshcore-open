@@ -12513,6 +12513,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connect to a radio to send messages'**
   String get chat_composerOffline;
+
+  /// Chat overflow menu item that opens the meshcore-gui BBS screen for this contact
+  ///
+  /// In en, this message translates to:
+  /// **'Bulletin board (BBS)'**
+  String get bbs_menuOpen;
+
+  /// No description provided for @bbs_title.
+  ///
+  /// In en, this message translates to:
+  /// **'BBS · {contactName}'**
+  String bbs_title(String contactName);
+
+  /// First tab of the BBS screen, showing messages of every category
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get bbs_tabAll;
+
+  /// Tooltip of the BBS screen refresh button
+  ///
+  /// In en, this message translates to:
+  /// **'Check for new messages'**
+  String get bbs_sync;
+
+  /// No description provided for @bbs_fetching.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching the board…'**
+  String get bbs_fetching;
+
+  /// Retention of a BBS category whose messages are never deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Kept forever'**
+  String get bbs_retentionForever;
+
+  /// Retention of a BBS category
+  ///
+  /// In en, this message translates to:
+  /// **'Kept {days, plural, =1{1 day} other{{days} days}}'**
+  String bbs_retentionDays(int days);
+
+  /// No description provided for @bbs_emptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages'**
+  String get bbs_emptyTitle;
+
+  /// No description provided for @bbs_emptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull down to check the BBS for new messages.'**
+  String get bbs_emptySubtitle;
+
+  /// No description provided for @bbs_noReplyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No reply from the BBS'**
+  String get bbs_noReplyTitle;
+
+  /// Keep !bbs untranslated: it is the command the BBS expects
+  ///
+  /// In en, this message translates to:
+  /// **'You may not be on its whitelist yet: send !⁠bbs on the channel the BBS is linked to. Or the BBS is out of reach.'**
+  String get bbs_noReplySubtitle;
+
+  /// No description provided for @bbs_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sync with the BBS'**
+  String get bbs_failed;
+
+  /// No description provided for @bbs_incomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Not all messages arrived. Check again to fetch the rest.'**
+  String get bbs_incomplete;
 }
 
 class _AppLocalizationsDelegate

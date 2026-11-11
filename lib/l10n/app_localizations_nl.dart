@@ -7451,4 +7451,56 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get chat_composerOffline =>
       'Verbind met een radio om berichten te versturen';
+
+  @override
+  String get bbs_menuOpen => 'Bulletinboard (BBS)';
+
+  @override
+  String bbs_title(String contactName) {
+    return 'BBS · $contactName';
+  }
+
+  @override
+  String get bbs_tabAll => 'Alle';
+
+  @override
+  String get bbs_sync => 'Nieuwe berichten ophalen';
+
+  @override
+  String get bbs_fetching => 'Bord ophalen…';
+
+  @override
+  String get bbs_retentionForever => 'Wordt altijd bewaard';
+
+  @override
+  String bbs_retentionDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days dagen',
+      one: '1 dag',
+    );
+    return 'Wordt $_temp0 bewaard';
+  }
+
+  @override
+  String get bbs_emptyTitle => 'Geen berichten';
+
+  @override
+  String get bbs_emptySubtitle =>
+      'Trek omlaag om de BBS op nieuwe berichten te controleren.';
+
+  @override
+  String get bbs_noReplyTitle => 'Geen antwoord van de BBS';
+
+  @override
+  String get bbs_noReplySubtitle =>
+      'Mogelijk sta je nog niet op de whitelist: stuur !⁠bbs op het kanaal waaraan de BBS gekoppeld is. Of de BBS is buiten bereik.';
+
+  @override
+  String get bbs_failed => 'Synchroniseren met de BBS is mislukt';
+
+  @override
+  String get bbs_incomplete =>
+      'Niet alle berichten zijn binnengekomen. Haal opnieuw op voor de rest.';
 }

@@ -10,22 +10,38 @@ const List<String> guiHelp = [
 ];
 
 const List<String> guiSync00 = [
-  "X1|1794394128|10|1|1|1|14\nR|*:90,A:0,U:90,S:30,ME:90,MI:90\n1|1762850000|U|Zwolle|PE1HVH|Dijk Zwolle-Zuid lekt bij gemaal",
-  "3|1762850120|S||PD/0XYZ|Repeater Hattem a|b weer online\n4|1762850180|ME||PE1HVH|Regel 1 Regel 2\n5|1762850240|OLD||PE1HVH|Bericht in vervallen categorie",
-  "6|1762850300|S||PE1HVH|Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø e",
+  "X1|1794395431|10|1|1|1|14\nR|*:90,A:0,U:90,S:30,ME:90,MI:90\n1|4102444800|U|Zwolle|PE1HVH|Dijk Zwolle-Zuid lekt bij gemaal",
+  "3|4102444920|S||PD/0XYZ|Repeater Hattem a|b weer online\n4|4102444980|ME||PE1HVH|Regel 1 Regel 2\n5|4102445040|OLD||PE1HVH|Bericht in vervallen categorie",
+  "6|4102445100|S||PE1HVH|Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø e",
   "+6|n emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji",
-  "+6| 📡\n7|1762850720|MI||PE1HVH|Vermist bericht 7\n8|1762850780|MI||PE1HVH|Vermist bericht 8\n9|1762850840|MI||PE1HVH|Vermist bericht 9",
-  "10|1762850900|MI||PE1HVH|Vermist bericht 10\n11|1762850960|MI||PE1HVH|Vermist bericht 11\n-2",
+  "+6| 📡\n7|4102445520|MI||PE1HVH|Vermist bericht 7\n8|4102445580|MI||PE1HVH|Vermist bericht 8\n9|4102445640|MI||PE1HVH|Vermist bericht 9",
+  "10|4102445700|MI||PE1HVH|Vermist bericht 10\n11|4102445760|MI||PE1HVH|Vermist bericht 11\n-2",
 ];
 
-const List<String> guiSync100 = [
-  "X1|1794394128|3|0|1|1|6\nR|*:90,A:0,U:90,S:30,ME:90,MI:90\n11|1762850960|MI||PE1HVH|Vermist bericht 11\n12|1762851020|MI||PE1HVH|Vermist bericht 12",
-  "13|1762851080|S||PE1HVH|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+const List<String> guiSync40 = [
+  "X1|1794395431|9|0|1|1|14\nR|*:90,A:0,U:90,S:30,ME:90,MI:90\n5|4102445040|OLD||PE1HVH|Bericht in vervallen categorie",
+  "6|4102445100|S||PE1HVH|Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø e",
+  "+6|n emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji 📡 Lange melding met accenten é ü ø en emoji",
+  "+6| 📡\n7|4102445520|MI||PE1HVH|Vermist bericht 7\n8|4102445580|MI||PE1HVH|Vermist bericht 8\n9|4102445640|MI||PE1HVH|Vermist bericht 9",
+  "10|4102445700|MI||PE1HVH|Vermist bericht 10\n11|4102445760|MI||PE1HVH|Vermist bericht 11\n12|4102445820|MI||PE1HVH|Vermist bericht 12",
+  "13|4102445880|S||PE1HVH|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "+13| woord\n-2",
 ];
 
+const List<String> guiSync100 = [
+  "X1|1794395431|3|0|1|1|6\nR|*:90,A:0,U:90,S:30,ME:90,MI:90\n11|4102445760|MI||PE1HVH|Vermist bericht 11\n12|4102445820|MI||PE1HVH|Vermist bericht 12",
+  "13|4102445880|S||PE1HVH|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "+13| woord\n-2",
+];
+
+const List<String> guiSync111 = [
+  "X1|1794395431|2|0|1|0|4\nR|*:90,A:0,U:90,S:30,ME:90,MI:90\n12|4102445820|MI||PE1HVH|Vermist bericht 12",
+  "13|4102445880|S||PE1HVH|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "+13| woord",
+];
+
 const List<String> guiSync131 = [
-  "X1|1794394128|0|0|1|0|1\nR|*:90,A:0,U:90,S:30,ME:90,MI:90",
+  "X1|1794395431|0|0|1|0|1\nR|*:90,A:0,U:90,S:30,ME:90,MI:90",
 ];
 
 const List<String> guiUsage = ["Usage: !x <since_id> <since_del>"];

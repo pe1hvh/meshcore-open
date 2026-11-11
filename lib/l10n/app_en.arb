@@ -4290,5 +4290,48 @@
   "chat_composerOffline": "Connect to a radio to send messages",
   "@chat_composerOffline": {
     "description": "Shown in place of the message box while no radio is connected"
-  }
+  },
+  "bbs_menuOpen": "Bulletin board (BBS)",
+  "@bbs_menuOpen": {
+    "description": "Chat overflow menu item that opens the meshcore-gui BBS screen for this contact"
+  },
+  "bbs_title": "BBS · {contactName}",
+  "@bbs_title": {
+    "placeholders": {
+      "contactName": {
+        "type": "String"
+      }
+    }
+  },
+  "bbs_tabAll": "All",
+  "@bbs_tabAll": {
+    "description": "First tab of the BBS screen, showing messages of every category"
+  },
+  "bbs_sync": "Check for new messages",
+  "@bbs_sync": {
+    "description": "Tooltip of the BBS screen refresh button"
+  },
+  "bbs_fetching": "Fetching the board…",
+  "bbs_retentionForever": "Kept forever",
+  "@bbs_retentionForever": {
+    "description": "Retention of a BBS category whose messages are never deleted"
+  },
+  "bbs_retentionDays": "Kept {days, plural, =1{1 day} other{{days} days}}",
+  "@bbs_retentionDays": {
+    "description": "Retention of a BBS category",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "bbs_emptyTitle": "No messages",
+  "bbs_emptySubtitle": "Pull down to check the BBS for new messages.",
+  "bbs_noReplyTitle": "No reply from the BBS",
+  "bbs_noReplySubtitle": "You may not be on its whitelist yet: send !⁠bbs on the channel the BBS is linked to. Or the BBS is out of reach.",
+  "@bbs_noReplySubtitle": {
+    "description": "Keep !bbs untranslated: it is the command the BBS expects"
+  },
+  "bbs_failed": "Could not sync with the BBS",
+  "bbs_incomplete": "Not all messages arrived. Check again to fetch the rest."
 }

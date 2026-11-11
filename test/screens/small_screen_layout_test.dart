@@ -9,14 +9,17 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:meshcore_open/connector/meshcore_connector.dart';
 import 'package:meshcore_open/connector/meshcore_protocol.dart';
 import 'package:meshcore_open/l10n/app_localizations.dart';
 import 'package:meshcore_open/models/contact.dart';
 import 'package:meshcore_open/review_mode/review_radio.dart';
+import 'package:meshcore_open/review_mode/review_script.dart';
 import 'package:meshcore_open/screens/app_debug_log_screen.dart';
 import 'package:meshcore_open/screens/app_settings_screen.dart';
+import 'package:meshcore_open/screens/bbs_screen.dart';
 import 'package:meshcore_open/screens/ble_debug_log_screen.dart';
 import 'package:meshcore_open/screens/channel_chat_screen.dart';
 import 'package:meshcore_open/screens/channel_message_path_screen.dart';
@@ -43,6 +46,8 @@ import 'package:meshcore_open/screens/telemetry_screen.dart';
 import 'package:meshcore_open/screens/usb_screen.dart';
 import 'package:meshcore_open/services/app_debug_log_service.dart';
 import 'package:meshcore_open/services/app_settings_service.dart';
+import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
+import 'package:meshcore_open/services/bbs/bbs_sync_service.dart';
 import 'package:meshcore_open/services/ble_debug_log_service.dart';
 import 'package:meshcore_open/services/chat_text_scale_service.dart';
 import 'package:meshcore_open/services/image_codec_service.dart';
@@ -55,9 +60,12 @@ import 'package:meshcore_open/services/storage_service.dart';
 import 'package:meshcore_open/services/timeout_prediction_service.dart';
 import 'package:meshcore_open/services/translation_service.dart';
 import 'package:meshcore_open/services/ui_view_state_service.dart';
+import 'package:meshcore_open/storage/bbs_store_io.dart';
 import 'package:meshcore_open/storage/prefs_manager.dart';
 import 'package:meshcore_open/theme/mesh_theme.dart';
 import 'package:meshcore_open/widgets/routing_sheet.dart';
+
+import '../services/bbs/meshcore_gui_replies.dart';
 
 /// Renders every screen on a small phone (320x568, the narrowest common
 /// width) at several text scales, plus a desktop window, and fails on any
@@ -79,6 +87,32 @@ Future<_Env> _connect(WidgetTester tester) async {
   final retry = MessageRetryService();
   final settings = AppSettingsService();
   final translation = TranslationService(settings);
+  // The BBS screen shows a stored board; its sync gives up after 3 x 1 s.
+  late final SqliteBbsStore bbsStore;
+  await tester.runAsync(() async {
+    sqfliteFfiInit();
+    bbsStore = await SqliteBbsStore.open(
+      inMemoryDatabasePath,
+      factory: databaseFactoryFfiNoIsolate,
+    );
+    final bbsKey = _bbsContactKey;
+    final device = ReviewRadio.storagePrefix;
+    await bbsStore.saveCategories(
+      device,
+      bbsKey,
+      BbsProtocol.parseHelp(guiHelp.join('\n'))!,
+    );
+    for (final reply in [guiSync00, guiSync100]) {
+      await bbsStore.applySync(
+        device,
+        bbsKey,
+        BbsProtocol.parseSync(reply.join('\n'))!,
+        syncedAt: 1,
+      );
+    }
+  });
+  final bbs = BbsSyncService(connector, bbsStore)
+    ..replyTimeout = const Duration(seconds: 1);
   final env = _Env(connector, [
     ChangeNotifierProvider.value(value: connector),
     ChangeNotifierProvider.value(value: retry),
@@ -99,6 +133,7 @@ Future<_Env> _connect(WidgetTester tester) async {
     ChangeNotifierProvider.value(
       value: NetworkMapUploadService(connector: connector, settings: settings),
     ),
+    ChangeNotifierProvider<BbsSyncService?>.value(value: bbs),
   ]);
   await tester.runAsync(() async {
     await settings.loadSettings();
@@ -122,6 +157,10 @@ Future<_Env> _connect(WidgetTester tester) async {
   });
   return env;
 }
+
+/// The first review chat contact, whose board the BBS screen shows.
+String get _bbsContactKey =>
+    ReviewScript.contacts.firstWhere((c) => c.type == advTypeChat).publicKeyHex;
 
 Contact _contactOfType(MeshCoreConnector c, int type) => c.contacts.firstWhere(
   (x) => x.type == type,
@@ -179,6 +218,9 @@ final Map<String, _ScreenBuilder> _screens = {
   'BleDebugLog': (_) => const BleDebugLogScreen(),
   'Map': (_) => const MapScreen(),
   'Chat': (c) => ChatScreen(contact: _contactOfType(c, advTypeChat)),
+  'Bbs': (c) => BbsScreen(
+    contact: c.contacts.firstWhere((x) => x.publicKeyHex == _bbsContactKey),
+  ),
   'ChannelChat': (c) => ChannelChatScreen(channel: c.channels.first),
   'ChannelMessagePath': (c) {
     final msgs = c.getChannelMessages(c.channels.first);
@@ -252,6 +294,7 @@ void main() {
             'Contacts',
             'Map',
             'Chat',
+            'Bbs',
             'ChannelChat',
             'Settings',
           }.contains(entry.key))
@@ -328,6 +371,11 @@ void main() {
           await tester.pumpWidget(const SizedBox());
           // Let one-shot timers (scan and request timeouts) run out.
           await tester.pump(const Duration(minutes: 1));
+          // The BBS screen sends !h on opening; the review radio confirms
+          // and answers a DM only after an hour each.
+          if (entry.key == 'Bbs' && !offline) {
+            await tester.pump(const Duration(hours: 3));
+          }
 
           FlutterError.onError = previous;
           expect(overflows, isEmpty, reason: overflows.join('\n---\n'));

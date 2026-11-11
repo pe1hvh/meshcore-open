@@ -1,1 +1,289 @@
-{}
+{
+  "bg": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "cs": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "de": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "es": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "fr": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "hu": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "it": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "ja": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "ko": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "pl": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "pt": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "pt_PT": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "ru": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "sk": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "sl": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "sv": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "uk": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ],
+
+  "zh": [
+    "bbs_menuOpen",
+    "bbs_title",
+    "bbs_tabAll",
+    "bbs_sync",
+    "bbs_fetching",
+    "bbs_retentionForever",
+    "bbs_retentionDays",
+    "bbs_emptyTitle",
+    "bbs_emptySubtitle",
+    "bbs_noReplyTitle",
+    "bbs_noReplySubtitle",
+    "bbs_failed",
+    "bbs_incomplete"
+  ]
+}

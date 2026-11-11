@@ -34,6 +34,7 @@ import 'services/notification_service.dart';
 import 'services/ble_debug_log_service.dart';
 import 'services/app_debug_log_service.dart';
 import 'services/background_service.dart';
+import 'services/bbs/bbs_sync_service.dart';
 import 'services/map_tile_cache_service.dart';
 import 'services/chat_text_scale_service.dart';
 import 'services/translation_service.dart';
@@ -41,6 +42,7 @@ import 'services/ui_view_state_service.dart';
 import 'services/chat_background_service.dart';
 import 'services/timeout_prediction_service.dart';
 import 'storage/prefs_manager.dart';
+import 'storage/bbs_store.dart';
 import 'storage/history_store.dart';
 import 'theme/mesh_theme.dart';
 import 'utils/app_logger.dart';
@@ -205,6 +207,18 @@ void main() async {
     settings: appSettingsService,
   );
 
+  // The BBS keeps its own database; without one (web, or a file that cannot
+  // be opened) the app runs without the BBS screen.
+  BbsSyncService? bbsSyncService;
+  try {
+    final bbsStore = await BbsStore.open();
+    if (bbsStore != null) {
+      bbsSyncService = BbsSyncService(connector, bbsStore);
+    }
+  } catch (error) {
+    appLogger.warn('BBS database unavailable: $error');
+  }
+
   await connector.restoreLastRadio();
 
   runApp(
@@ -227,6 +241,7 @@ void main() async {
       networkMapUploadService: networkMapUploadService,
       chatBackgroundService: chatBackgroundService,
       messageFilterService: messageFilterService,
+      bbsSyncService: bbsSyncService,
     ),
   );
 }
@@ -375,6 +390,9 @@ class MeshCoreApp extends StatefulWidget {
   final ChatBackgroundService chatBackgroundService;
   final MessageFilterService messageFilterService;
 
+  /// `null` where the BBS is not supported (web) or its database failed.
+  final BbsSyncService? bbsSyncService;
+
   const MeshCoreApp({
     super.key,
     required this.connector,
@@ -395,6 +413,7 @@ class MeshCoreApp extends StatefulWidget {
     required this.networkMapUploadService,
     required this.chatBackgroundService,
     required this.messageFilterService,
+    this.bbsSyncService,
   });
 
   @override
@@ -506,6 +525,9 @@ class _MeshCoreAppState extends State<MeshCoreApp> with WidgetsBindingObserver {
         ChangeNotifierProvider.value(value: widget.networkMapUploadService),
         ChangeNotifierProvider.value(value: widget.chatBackgroundService),
         ChangeNotifierProvider.value(value: widget.messageFilterService),
+        ChangeNotifierProvider<BbsSyncService?>.value(
+          value: widget.bbsSyncService,
+        ),
       ],
       child: Consumer<AppSettingsService>(
         builder: (context, settingsService, child) {

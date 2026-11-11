@@ -3421,6 +3421,19 @@ class MeshCoreConnector extends ChangeNotifier {
   @visibleForTesting
   void handleFrameForTest(List<int> data) => _handleFrame(data);
 
+  final List<bool Function(Message message)> _contactMessageInterceptors = [];
+
+  /// An incoming contact message that [interceptor] claims (returns `true`
+  /// for) skips the chat history, unread count and notification. The BBS
+  /// sync uses this for its replies.
+  void addContactMessageInterceptor(
+    bool Function(Message message) interceptor,
+  ) => _contactMessageInterceptors.add(interceptor);
+
+  void removeContactMessageInterceptor(
+    bool Function(Message message) interceptor,
+  ) => _contactMessageInterceptors.remove(interceptor);
+
   @visibleForTesting
   static bool shouldIgnoreLateTcpConnectError({
     required bool manualDisconnect,
@@ -7887,6 +7900,10 @@ class MeshCoreConnector extends ChangeNotifier {
           message.senderKeyHex == pubKeyToHex(_selfPublicKey!) &&
           (message.pathLength == null || message.pathLength == 0)) {
         debugPrint('Ignoring direct message from self');
+        return;
+      }
+      if (!message.isOutgoing &&
+          _contactMessageInterceptors.any((claims) => claims(message!))) {
         return;
       }
 

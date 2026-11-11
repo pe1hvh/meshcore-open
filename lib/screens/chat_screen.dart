@@ -41,6 +41,7 @@ import '../widgets/chat_zoom_wrapper.dart';
 import '../widgets/message_bubble_frame.dart';
 import '../widgets/reaction_chips.dart';
 import '../widgets/chat_day_separator.dart';
+import 'bbs_screen.dart';
 import 'channel_message_path_screen.dart';
 import 'contacts_screen.dart' show confirmRemoveContact;
 import 'map_screen.dart';
@@ -473,6 +474,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     final contact = _resolveContact(connector);
                     final isRoom = contact.type == advTypeRoom;
                     final readOnly = isRadioReadOnly(connector);
+                    final showBbs =
+                        contact.type == advTypeChat && bbsAvailable(context);
 
                     return PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
@@ -499,6 +502,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             );
                           case 'roomManagement':
                             _showRoomManagementLogin(contact);
+                          case 'bbs':
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    BbsScreen(contact: contact),
+                              ),
+                            );
                           case 'clearChat':
                             _confirmClearChat(context, connector);
                           case 'removeContact':
@@ -535,6 +546,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             label: context.l10n.contact_telemetry,
                           ),
                         ),
+                        if (showBbs)
+                          PopupMenuItem(
+                            value: 'bbs',
+                            child: MeshMenuItemRow(
+                              icon: Icons.forum_outlined,
+                              label: context.l10n.bbs_menuOpen,
+                            ),
+                          ),
                         if (isRoom)
                           PopupMenuItem(
                             value: 'roomManagement',

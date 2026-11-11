@@ -3677,5 +3677,18 @@
   "connectSheet_chooseRadioSubtitle": "Bluetooth, USB of TCP",
   "connectSheet_stopReconnecting": "Opnieuw verbinden stoppen",
   "connectSheet_reconnectFailed": "Kan {name} niet bereiken. Controleer of het aan staat en in de buurt is.",
-  "chat_composerOffline": "Verbind met een radio om berichten te versturen"
+  "chat_composerOffline": "Verbind met een radio om berichten te versturen",
+  "bbs_menuOpen": "Bulletinboard (BBS)",
+  "bbs_title": "BBS · {contactName}",
+  "bbs_tabAll": "Alle",
+  "bbs_sync": "Nieuwe berichten ophalen",
+  "bbs_fetching": "Bord ophalen…",
+  "bbs_retentionForever": "Wordt altijd bewaard",
+  "bbs_retentionDays": "Wordt {days, plural, =1{1 dag} other{{days} dagen}} bewaard",
+  "bbs_emptyTitle": "Geen berichten",
+  "bbs_emptySubtitle": "Trek omlaag om de BBS op nieuwe berichten te controleren.",
+  "bbs_noReplyTitle": "Geen antwoord van de BBS",
+  "bbs_noReplySubtitle": "Mogelijk sta je nog niet op de whitelist: stuur !⁠bbs op het kanaal waaraan de BBS gekoppeld is. Of de BBS is buiten bereik.",
+  "bbs_failed": "Synchroniseren met de BBS is mislukt",
+  "bbs_incomplete": "Niet alle berichten zijn binnengekomen. Haal opnieuw op voor de rest."
 }

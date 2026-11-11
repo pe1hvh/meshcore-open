@@ -70,7 +70,7 @@ void main() {
       device,
       bbs,
       BbsProtocol.parseSync(
-        'X1|$epoch|1|0|0|0|2\nR|*:90\n2|1762850060|A||PE1HVH|Noodpost',
+        'X1|$epoch|1|0|0|0|2\nR|*:90\n2|4102444860|A||PE1HVH|Noodpost',
       )!,
       syncedAt: 1,
     );
@@ -112,7 +112,7 @@ void main() {
   test('purge follows the retention per category', () async {
     await store.applySync(device, bbs, sync(guiSync00), syncedAt: 1);
     await store.applySync(device, bbs, sync(guiSync100), syncedAt: 1);
-    const posted = 1762850000;
+    const posted = 4102444800;
 
     expect(await store.purgeExpired(device, bbs, now: posted + 29 * day), 0);
     // STATUS (30 days) goes first; ADDRESSES (0) is kept forever.

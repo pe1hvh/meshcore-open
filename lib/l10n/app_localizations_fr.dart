@@ -7512,4 +7512,56 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get chat_composerOffline =>
       'Connectez-vous à une radio pour envoyer des messages';
+
+  @override
+  String get bbs_menuOpen => 'Bulletin board (BBS)';
+
+  @override
+  String bbs_title(String contactName) {
+    return 'BBS · $contactName';
+  }
+
+  @override
+  String get bbs_tabAll => 'All';
+
+  @override
+  String get bbs_sync => 'Check for new messages';
+
+  @override
+  String get bbs_fetching => 'Fetching the board…';
+
+  @override
+  String get bbs_retentionForever => 'Kept forever';
+
+  @override
+  String bbs_retentionDays(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '1 day',
+    );
+    return 'Kept $_temp0';
+  }
+
+  @override
+  String get bbs_emptyTitle => 'No messages';
+
+  @override
+  String get bbs_emptySubtitle =>
+      'Pull down to check the BBS for new messages.';
+
+  @override
+  String get bbs_noReplyTitle => 'No reply from the BBS';
+
+  @override
+  String get bbs_noReplySubtitle =>
+      'You may not be on its whitelist yet: send !⁠bbs on the channel the BBS is linked to. Or the BBS is out of reach.';
+
+  @override
+  String get bbs_failed => 'Could not sync with the BBS';
+
+  @override
+  String get bbs_incomplete =>
+      'Not all messages arrived. Check again to fetch the rest.';
 }
