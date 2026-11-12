@@ -48,7 +48,7 @@ jq -e '.flutter.source_revision == "c197ca5199e9ee5661e865596c9c07294dfab51c" an
 stage_bundle "$project" "$temporary/bundle" "$temporary/AppDir with spaces"
 check_bundle "$temporary/AppDir with spaces/usr/bin"
 [[ -x "$temporary/AppDir with spaces/AppRun" ]]
-[[ -f "$temporary/AppDir with spaces/usr/share/applications/com.meshcore.meshcore_open.desktop" ]]
+[[ -f "$temporary/AppDir with spaces/usr/share/applications/nl.noodnetoverijssel.companion.desktop" ]]
 
 printf 'fixture\n' > "$temporary/input"
 checksum="$(sha256sum "$temporary/input")"

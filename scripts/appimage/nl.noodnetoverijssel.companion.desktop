@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=MeshCore Open
+Name=MeshCore Open BBS
 Exec=meshcore_open
-Icon=com.meshcore.meshcore_open
+Icon=nl.noodnetoverijssel.companion
 Terminal=false
 Categories=Network;InstantMessaging;

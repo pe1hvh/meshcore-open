@@ -89,7 +89,7 @@ extract_tool() {
 }
 
 stage_bundle() {
-  local project="$1" bundle="$2" appdir="$3" identity=com.meshcore.meshcore_open
+  local project="$1" bundle="$2" appdir="$3" identity=nl.noodnetoverijssel.companion
   mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" \
     "$appdir/usr/share/icons/hicolor/256x256/apps"
   cp -a "$bundle/." "$appdir/usr/bin/"
@@ -140,16 +140,16 @@ package_direct() {
   stage_bundle "$project" "$bundle" "$appdir"
   install -m 755 "$(command -v xdg-user-dir)" "$appdir/usr/bin/xdg-user-dir"
   gdk-pixbuf-thumbnailer --size 256 "$project/mesh-icon.png" \
-    "$appdir/usr/share/icons/hicolor/256x256/apps/com.meshcore.meshcore_open.png"
-  desktop-file-validate "$appdir/usr/share/applications/com.meshcore.meshcore_open.desktop"
+    "$appdir/usr/share/icons/hicolor/256x256/apps/nl.noodnetoverijssel.companion.png"
+  desktop-file-validate "$appdir/usr/share/applications/nl.noodnetoverijssel.companion.desktop"
   export DEPLOY_GTK_VERSION=3 NO_STRIP=1
   "$linuxdeploy" --appdir "$appdir" --executable "$appdir/usr/bin/meshcore_open" \
     --library "$(pkg-config --variable=libdir harfbuzz)/libharfbuzz.so.0" \
     --library "$(pkg-config --variable=libdir freetype2)/libfreetype.so.6" \
     --library "$(pkg-config --variable=libdir fontconfig)/libfontconfig.so.1" \
     --library "$(pkg-config --variable=libdir fribidi)/libfribidi.so.0" \
-    --desktop-file "$appdir/usr/share/applications/com.meshcore.meshcore_open.desktop" \
-    --icon-file "$appdir/usr/share/icons/hicolor/256x256/apps/com.meshcore.meshcore_open.png" \
+    --desktop-file "$appdir/usr/share/applications/nl.noodnetoverijssel.companion.desktop" \
+    --icon-file "$appdir/usr/share/icons/hicolor/256x256/apps/nl.noodnetoverijssel.companion.png" \
     --plugin gtk
   while IFS= read -r -d '' library; do
     readelf -h "$library" >/dev/null 2>&1 || continue
