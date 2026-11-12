@@ -1,0 +1,131 @@
+From 42cf2deb19c503b6ebae04fef40d72c178af3fd5 Mon Sep 17 00:00:00 2001
+From: PE1HVH <pe1hvh@users.noreply.github.com>
+Date: Thu, 12 Nov 2026 08:08:11 +0100
+Subject: [PATCH] Linux: own app identity for the BBS fork
+
+Set the GTK application ID to nl.noodnetoverijssel.companion and the
+window/desktop name to MeshCore Open BBS, so the fork does not share
+its desktop entry or data directory with an upstream install.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ETjswj24DYiCUWvwek1S7M
+---
+ linux/CMakeLists.txt                                   |  2 +-
+ linux/runner/my_application.cc                         |  4 ++--
+ scripts/appimage/com.meshcore.meshcore_open.desktop    |  7 -------
+ .../appimage/nl.noodnetoverijssel.companion.desktop    |  7 +++++++
+ scripts/appimage/test_packaging.sh                     |  2 +-
+ scripts/build_appimage.sh                              | 10 +++++-----
+ 6 files changed, 16 insertions(+), 16 deletions(-)
+ delete mode 100644 scripts/appimage/com.meshcore.meshcore_open.desktop
+ create mode 100644 scripts/appimage/nl.noodnetoverijssel.companion.desktop
+
+diff --git a/linux/CMakeLists.txt b/linux/CMakeLists.txt
+index a3fc95c7..8c28ac74 100644
+--- a/linux/CMakeLists.txt
++++ b/linux/CMakeLists.txt
+@@ -7,7 +7,7 @@ project(runner LANGUAGES CXX)
+ set(BINARY_NAME "meshcore_open")
+ # The unique GTK application identifier for this application. See:
+ # https://wiki.gnome.org/HowDoI/ChooseApplicationID
+-set(APPLICATION_ID "com.meshcore.meshcore_open")
++set(APPLICATION_ID "nl.noodnetoverijssel.companion")
+ 
+ # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
+ # versions of CMake.
+diff --git a/linux/runner/my_application.cc b/linux/runner/my_application.cc
+index 1d9a9edd..7669db33 100644
+--- a/linux/runner/my_application.cc
++++ b/linux/runner/my_application.cc
+@@ -46,11 +46,11 @@ static void my_application_activate(GApplication* application) {
+   if (use_header_bar) {
+     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
+     gtk_widget_show(GTK_WIDGET(header_bar));
+-    gtk_header_bar_set_title(header_bar, "meshcore_open");
++    gtk_header_bar_set_title(header_bar, "MeshCore Open BBS");
+     gtk_header_bar_set_show_close_button(header_bar, TRUE);
+     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
+   } else {
+-    gtk_window_set_title(window, "meshcore_open");
++    gtk_window_set_title(window, "MeshCore Open BBS");
+   }
+ 
+   gtk_window_set_default_size(window, 1280, 720);
+diff --git a/scripts/appimage/com.meshcore.meshcore_open.desktop b/scripts/appimage/com.meshcore.meshcore_open.desktop
+deleted file mode 100644
+index 05d08f4c..00000000
+--- a/scripts/appimage/com.meshcore.meshcore_open.desktop
++++ /dev/null
+@@ -1,7 +0,0 @@
+-[Desktop Entry]
+-Type=Application
+-Name=MeshCore Open
+-Exec=meshcore_open
+-Icon=com.meshcore.meshcore_open
+-Terminal=false
+-Categories=Network;InstantMessaging;
+\ No newline at end of file
+diff --git a/scripts/appimage/nl.noodnetoverijssel.companion.desktop b/scripts/appimage/nl.noodnetoverijssel.companion.desktop
+new file mode 100644
+index 00000000..f0741432
+--- /dev/null
++++ b/scripts/appimage/nl.noodnetoverijssel.companion.desktop
+@@ -0,0 +1,7 @@
++[Desktop Entry]
++Type=Application
++Name=MeshCore Open BBS
++Exec=meshcore_open
++Icon=nl.noodnetoverijssel.companion
++Terminal=false
++Categories=Network;InstantMessaging;
+\ No newline at end of file
+diff --git a/scripts/appimage/test_packaging.sh b/scripts/appimage/test_packaging.sh
+index 02436fae..b752a294 100644
+--- a/scripts/appimage/test_packaging.sh
++++ b/scripts/appimage/test_packaging.sh
+@@ -48,7 +48,7 @@ jq -e '.flutter.source_revision == "c197ca5199e9ee5661e865596c9c07294dfab51c" an
+ stage_bundle "$project" "$temporary/bundle" "$temporary/AppDir with spaces"
+ check_bundle "$temporary/AppDir with spaces/usr/bin"
+ [[ -x "$temporary/AppDir with spaces/AppRun" ]]
+-[[ -f "$temporary/AppDir with spaces/usr/share/applications/com.meshcore.meshcore_open.desktop" ]]
++[[ -f "$temporary/AppDir with spaces/usr/share/applications/nl.noodnetoverijssel.companion.desktop" ]]
+ 
+ printf 'fixture\n' > "$temporary/input"
+ checksum="$(sha256sum "$temporary/input")"
+diff --git a/scripts/build_appimage.sh b/scripts/build_appimage.sh
+index 03b00c1a..3a53b89a 100644
+--- a/scripts/build_appimage.sh
++++ b/scripts/build_appimage.sh
+@@ -89,7 +89,7 @@ extract_tool() {
+ }
+ 
+ stage_bundle() {
+-  local project="$1" bundle="$2" appdir="$3" identity=com.meshcore.meshcore_open
++  local project="$1" bundle="$2" appdir="$3" identity=nl.noodnetoverijssel.companion
+   mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" \
+     "$appdir/usr/share/icons/hicolor/256x256/apps"
+   cp -a "$bundle/." "$appdir/usr/bin/"
+@@ -140,16 +140,16 @@ package_direct() {
+   stage_bundle "$project" "$bundle" "$appdir"
+   install -m 755 "$(command -v xdg-user-dir)" "$appdir/usr/bin/xdg-user-dir"
+   gdk-pixbuf-thumbnailer --size 256 "$project/mesh-icon.png" \
+-    "$appdir/usr/share/icons/hicolor/256x256/apps/com.meshcore.meshcore_open.png"
+-  desktop-file-validate "$appdir/usr/share/applications/com.meshcore.meshcore_open.desktop"
++    "$appdir/usr/share/icons/hicolor/256x256/apps/nl.noodnetoverijssel.companion.png"
++  desktop-file-validate "$appdir/usr/share/applications/nl.noodnetoverijssel.companion.desktop"
+   export DEPLOY_GTK_VERSION=3 NO_STRIP=1
+   "$linuxdeploy" --appdir "$appdir" --executable "$appdir/usr/bin/meshcore_open" \
+     --library "$(pkg-config --variable=libdir harfbuzz)/libharfbuzz.so.0" \
+     --library "$(pkg-config --variable=libdir freetype2)/libfreetype.so.6" \
+     --library "$(pkg-config --variable=libdir fontconfig)/libfontconfig.so.1" \
+     --library "$(pkg-config --variable=libdir fribidi)/libfribidi.so.0" \
+-    --desktop-file "$appdir/usr/share/applications/com.meshcore.meshcore_open.desktop" \
+-    --icon-file "$appdir/usr/share/icons/hicolor/256x256/apps/com.meshcore.meshcore_open.png" \
++    --desktop-file "$appdir/usr/share/applications/nl.noodnetoverijssel.companion.desktop" \
++    --icon-file "$appdir/usr/share/icons/hicolor/256x256/apps/nl.noodnetoverijssel.companion.png" \
+     --plugin gtk
+   while IFS= read -r -d '' library; do
+     readelf -h "$library" >/dev/null 2>&1 || continue
+-- 
+2.43.0
+
