@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
 import 'package:meshcore_open/storage/bbs_store_io.dart';
@@ -145,5 +147,141 @@ void main() {
     expect(await store.messages('9999999999', bbs), isEmpty);
     expect(await store.messages(device, 'cd' * 32), isEmpty);
     expect(await store.board('9999999999', bbs), isNull);
+  });
+
+  group('post paths', () {
+    Future<void> savePath(int id) => store.savePostPath(
+      device,
+      bbs,
+      id,
+      pathLength: 2,
+      pathHashWidth: 1,
+      pathBytes: const [0x1a, 0x2b],
+    );
+
+    test('a path saved before the sync is joined to its message', () async {
+      await savePath(5);
+      await store.applySync(device, bbs, sync(guiSync00), syncedAt: 1);
+      final messages = await store.messages(device, bbs);
+      final own = messages.singleWhere((m) => m.id == 5);
+      expect(own.hasPath, isTrue);
+      expect(own.pathLength, 2);
+      expect(own.pathHashWidth, 1);
+      expect(own.pathBytes, [0x1a, 0x2b]);
+      expect(messages.where((m) => m.hasPath), hasLength(1));
+    });
+
+    test('a flood post keeps its path length without bytes', () async {
+      await store.savePostPath(
+        device,
+        bbs,
+        5,
+        pathLength: -1,
+        pathHashWidth: 1,
+        pathBytes: const [],
+      );
+      await store.applySync(device, bbs, sync(guiSync00), syncedAt: 1);
+      final own = (await store.messages(
+        device,
+        bbs,
+      )).singleWhere((m) => m.id == 5);
+      expect(own.pathLength, -1);
+      expect(own.pathBytes, isEmpty);
+    });
+
+    test('a resynced record keeps its path', () async {
+      await savePath(5);
+      await store.applySync(device, bbs, sync(guiSync00), syncedAt: 1);
+      await store.applySync(device, bbs, sync(guiSync00), syncedAt: 2);
+      final own = (await store.messages(
+        device,
+        bbs,
+      )).singleWhere((m) => m.id == 5);
+      expect(own.hasPath, isTrue);
+    });
+
+    test('an operator deletion removes the path', () async {
+      await savePath(2);
+      await store.applySync(
+        device,
+        bbs,
+        BbsProtocol.parseSync('X1|$epoch|0|0|1|1|2\nR|*:90\n-2')!,
+        syncedAt: 1,
+      );
+      await store.applySync(
+        device,
+        bbs,
+        BbsProtocol.parseSync(
+          'X1|$epoch|1|0|0|0|2\nR|*:90\n2|4102444860|A||PE1HVH|Terug',
+        )!,
+        syncedAt: 2,
+      );
+      expect((await store.messages(device, bbs)).single.hasPath, isFalse);
+    });
+
+    test('a new epoch discards the paths', () async {
+      await store.applySync(device, bbs, sync(guiSync00), syncedAt: 1);
+      await savePath(1);
+      final restarted = BbsProtocol.parseSync(
+        'X1|1800000000|1|0|0|0|2\nR|*:90\n1|1800000000|U||PE1HVH|Nieuw',
+      )!;
+      await store.applySync(device, bbs, restarted, syncedAt: 2);
+      await store.applySync(device, bbs, restarted, syncedAt: 3);
+      expect((await store.messages(device, bbs)).single.hasPath, isFalse);
+    });
+
+    test(
+      'purge drops paths of purged messages but keeps waiting ones',
+      () async {
+        await store.applySync(device, bbs, sync(guiSync00), syncedAt: 1);
+        await store.applySync(device, bbs, sync(guiSync100), syncedAt: 1);
+        for (final id in [3, 14]) {
+          await savePath(id);
+        }
+        await store.purgeExpired(device, bbs, now: 4102444800 + 999 * day);
+        // Message 14 is not synced yet, so its path must survive.
+        await store.applySync(
+          device,
+          bbs,
+          BbsProtocol.parseSync(
+            'X1|$epoch|1|0|0|1|2\nR|*:90\n14|4102444860|U||PE1HVH|Later',
+          )!,
+          syncedAt: 2,
+        );
+        final rows = await store.database.query('bbs_paths');
+        expect(rows.map((r) => r['id']), [14]);
+        expect((await store.messages(device, bbs)).single.hasPath, isTrue);
+      },
+    );
+  });
+
+  test('a version 1 database gets the paths table', () async {
+    final path = '${Directory.systemTemp.createTempSync().path}/bbs_v1.db';
+    final v1 = await databaseFactoryFfiNoIsolate.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) => db.execute(
+          'CREATE TABLE bbs_messages (device_key TEXT, bbs_key TEXT, '
+          'id INTEGER, ts INTEGER, category TEXT, sender TEXT, text TEXT, '
+          'read INTEGER NOT NULL DEFAULT 0)',
+        ),
+      ),
+    );
+    await v1.close();
+    final upgraded = await SqliteBbsStore.open(
+      path,
+      factory: databaseFactoryFfiNoIsolate,
+    );
+    await upgraded.savePostPath(
+      device,
+      bbs,
+      1,
+      pathLength: 0,
+      pathHashWidth: 1,
+      pathBytes: const [],
+    );
+    expect(await upgraded.database.query('bbs_paths'), hasLength(1));
+    await upgraded.close();
   });
 }

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +17,7 @@ import 'package:meshcore_open/models/contact.dart';
 import 'package:meshcore_open/models/message.dart';
 import 'package:meshcore_open/models/path_selection.dart';
 import 'package:meshcore_open/screens/bbs_screen.dart';
+import 'package:meshcore_open/screens/channel_message_path_screen.dart';
 import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
 import 'package:meshcore_open/services/bbs/bbs_sync_service.dart';
 import 'package:meshcore_open/storage/bbs_store_io.dart';
@@ -128,6 +129,7 @@ void main() {
     WidgetTester tester, {
     bool withBoard = true,
     _OfflineConnector? radio,
+    int? ownPost,
   }) async {
     if (radio != null) connector = radio;
     await tester.runAsync(() async {
@@ -148,6 +150,16 @@ void main() {
             _bbsKey,
             BbsProtocol.parseSync(reply.join('\n'))!,
             syncedAt: 1,
+          );
+        }
+        if (ownPost != null) {
+          await store.savePostPath(
+            device,
+            _bbsKey,
+            ownPost,
+            pathLength: 1,
+            pathHashWidth: 1,
+            pathBytes: const [0xa1],
           );
         }
       }
@@ -344,5 +356,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('#13  PE1HVH'), findsOneWidget);
     expect(PrefsManager.instance.getBool(bbsShowNumbersKey), isTrue);
+  });
+
+  group('message actions', () {
+    Future<void> longPress(WidgetTester tester, String text) async {
+      await tester.longPress(find.text(text));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an own post offers path, map and copy', (tester) async {
+      await open(tester, ownPost: 12);
+      await longPress(tester, 'Vermist bericht 12');
+      expect(find.widgetWithText(ListTile, 'Path'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'View path on map'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, 'Copy'), findsOneWidget);
+    });
+
+    testWidgets('a post of someone else only offers copy', (tester) async {
+      await open(tester, ownPost: 12);
+      await longPress(tester, 'Vermist bericht 11');
+      expect(find.widgetWithText(ListTile, 'Path'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'View path on map'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'Copy'), findsOneWidget);
+    });
+
+    testWidgets('copy puts the text on the clipboard', (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await open(tester);
+      await longPress(tester, 'Vermist bericht 12');
+      await tester.tap(find.widgetWithText(ListTile, 'Copy'));
+      await tester.pumpAndSettle();
+      expect(copied, 'Vermist bericht 12');
+    });
+
+    testWidgets('Path opens the path screen of the own post', (tester) async {
+      await open(tester, ownPost: 12);
+      await longPress(tester, 'Vermist bericht 12');
+      await tester.tap(find.widgetWithText(ListTile, 'Path'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ChannelMessagePathScreen), findsOneWidget);
+    });
   });
 }

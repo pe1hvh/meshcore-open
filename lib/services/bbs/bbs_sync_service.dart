@@ -200,9 +200,11 @@ class BbsSyncService extends ChangeNotifier {
       );
       if (reply == null) return const BbsPostOutcome(BbsPostResult.noReply);
       final id = BbsProtocol.parsePostedId(reply);
-      return id == null
-          ? BbsPostOutcome(BbsPostResult.rejected, reply: reply)
-          : BbsPostOutcome(BbsPostResult.posted, id: id, reply: reply);
+      if (id == null) {
+        return BbsPostOutcome(BbsPostResult.rejected, reply: reply);
+      }
+      await _savePostPath(key, id, bbs);
+      return BbsPostOutcome(BbsPostResult.posted, id: id, reply: reply);
     } on RadioNotConnectedException {
       return const BbsPostOutcome(BbsPostResult.failed);
     } on Exception catch (error) {
@@ -211,6 +213,32 @@ class BbsSyncService extends ChangeNotifier {
     } finally {
       _posting.remove(key);
       notifyListeners();
+    }
+  }
+
+  /// Links message [id] to the route the `!p` took: the route the radio now
+  /// holds for the BBS node, as a DM in the chat stores it. Read after the
+  /// reply, so a route learned from the path return of this `!p` counts. A
+  /// failure only costs the route, not the post.
+  Future<void> _savePostPath(String bbsKey, int id, Contact fallback) async {
+    final device = deviceKey;
+    if (device == null) return;
+    final contact = _connector.contacts.firstWhere(
+      (c) => c.publicKeyHex == bbsKey,
+      orElse: () => fallback,
+    );
+    final flood = contact.pathLength < 0;
+    try {
+      await _store.savePostPath(
+        device,
+        bbsKey,
+        id,
+        pathLength: flood ? -1 : contact.pathLength,
+        pathHashWidth: contact.pathHashWidth,
+        pathBytes: flood ? const <int>[] : contact.path,
+      );
+    } on Exception catch (error) {
+      appLogger.warn('BBS post path not stored: $error', tag: 'BBS');
     }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart' as sqlite;
@@ -23,7 +24,7 @@ Future<BbsStore?> createBbsStore() async {
 class SqliteBbsStore extends BbsStore {
   SqliteBbsStore._(this.database);
 
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
   static const _boardWhere = 'device_key = ? AND bbs_key = ?';
   final sqlite.Database database;
 
@@ -59,11 +60,24 @@ class SqliteBbsStore extends BbsStore {
             'CREATE INDEX idx_bbs_cat '
             'ON bbs_messages(device_key, bbs_key, category, ts)',
           );
+          await _createPaths(db);
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) await _createPaths(db);
         },
       ),
     );
     return SqliteBbsStore._(database);
   }
+
+  /// Version 2: routes of this radio's own posts.
+  static Future<void> _createPaths(sqlite.Database db) => db.execute(
+    'CREATE TABLE bbs_paths ('
+    'device_key TEXT NOT NULL, bbs_key TEXT NOT NULL, '
+    'id INTEGER NOT NULL, path_len INTEGER NOT NULL, '
+    'hash_width INTEGER NOT NULL, path BLOB NOT NULL, '
+    'PRIMARY KEY (device_key, bbs_key, id))',
+  );
 
   @override
   Future<BbsBoard?> board(String deviceKey, String bbsKey) =>
@@ -139,6 +153,7 @@ class SqliteBbsStore extends BbsStore {
         where: _boardWhere,
         whereArgs: boardArgs,
       );
+      await txn.delete('bbs_paths', where: _boardWhere, whereArgs: boardArgs);
       await txn.update(
         'bbs_boards',
         {
@@ -179,11 +194,13 @@ class SqliteBbsStore extends BbsStore {
       if (message.id > lastId) lastId = message.id;
     }
     for (final id in reply.deletedIds) {
-      batch.delete(
-        'bbs_messages',
-        where: '$_boardWhere AND id = ?',
-        whereArgs: [deviceKey, bbsKey, id],
-      );
+      for (final table in const ['bbs_messages', 'bbs_paths']) {
+        batch.delete(
+          table,
+          where: '$_boardWhere AND id = ?',
+          whereArgs: [deviceKey, bbsKey, id],
+        );
+      }
     }
     batch.update(
       'bbs_boards',
@@ -203,16 +220,36 @@ class SqliteBbsStore extends BbsStore {
   });
 
   @override
+  Future<void> savePostPath(
+    String deviceKey,
+    String bbsKey,
+    int id, {
+    required int pathLength,
+    required int pathHashWidth,
+    required List<int> pathBytes,
+  }) => database.insert('bbs_paths', {
+    'device_key': deviceKey,
+    'bbs_key': bbsKey,
+    'id': id,
+    'path_len': pathLength,
+    'hash_width': pathHashWidth,
+    'path': Uint8List.fromList(pathBytes),
+  }, conflictAlgorithm: sqlite.ConflictAlgorithm.replace);
+
+  @override
   Future<List<BbsMessage>> messages(
     String deviceKey,
     String bbsKey, {
     String? category,
   }) async {
-    final rows = await database.query(
-      'bbs_messages',
-      where: category == null ? _boardWhere : '$_boardWhere AND category = ?',
-      whereArgs: [deviceKey, bbsKey, ?category],
-      orderBy: 'ts DESC, id DESC',
+    final rows = await database.rawQuery(
+      'SELECT m.*, p.path_len, p.hash_width, p.path FROM bbs_messages m '
+      'LEFT JOIN bbs_paths p ON p.device_key = m.device_key '
+      'AND p.bbs_key = m.bbs_key AND p.id = m.id '
+      'WHERE m.device_key = ? AND m.bbs_key = ?'
+      '${category == null ? '' : ' AND m.category = ?'} '
+      'ORDER BY m.ts DESC, m.id DESC',
+      [deviceKey, bbsKey, ?category],
     );
     return [
       for (final row in rows)
@@ -223,6 +260,11 @@ class SqliteBbsStore extends BbsStore {
           sender: row['sender'] as String,
           text: row['text'] as String,
           read: row['read'] == 1,
+          pathLength: row['path_len'] as int?,
+          pathHashWidth: row['hash_width'] as int?,
+          pathBytes: row['path'] == null
+              ? null
+              : Uint8List.fromList(row['path'] as List<int>),
         ),
     ];
   }
@@ -253,6 +295,15 @@ class SqliteBbsStore extends BbsStore {
         whereArgs: [deviceKey, bbsKey, category, now - days * 86400],
       );
     }
+    // Routes of messages that are gone; a route above the last synced id
+    // waits for its message.
+    await txn.delete(
+      'bbs_paths',
+      where:
+          '$_boardWhere AND id <= ? AND id NOT IN '
+          '(SELECT id FROM bbs_messages WHERE $_boardWhere)',
+      whereArgs: [deviceKey, bbsKey, board.lastId, deviceKey, bbsKey],
+    );
     return removed;
   });
 

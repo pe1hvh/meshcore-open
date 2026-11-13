@@ -31,6 +31,18 @@ abstract class BbsStore {
     required int syncedAt,
   });
 
+  /// Stores the route this radio used for its own `!p` that the BBS
+  /// confirmed as message [id]. Kept apart from the messages, which only
+  /// arrive with the next sync; removed with the message or the epoch.
+  Future<void> savePostPath(
+    String deviceKey,
+    String bbsKey,
+    int id, {
+    required int pathLength,
+    required int pathHashWidth,
+    required List<int> pathBytes,
+  });
+
   /// Messages newest first, optionally of one category (full name).
   Future<List<BbsMessage>> messages(
     String deviceKey,

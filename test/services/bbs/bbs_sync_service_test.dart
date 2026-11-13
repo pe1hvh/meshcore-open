@@ -244,6 +244,27 @@ void main() {
       expect(chatTexts(), chatBefore);
     });
 
+    test('a confirmed post stores the route to the BBS node', () async {
+      radio.replies['!p U Pad'] = ['Posted #15 [URGENT]: Pad'];
+      final outcome = await service.post(bbs, 'U', 'Pad');
+      expect(outcome.id, 15);
+      final rows = await store.database.query('bbs_paths');
+      expect(rows, hasLength(1));
+      final row = rows.single;
+      final contact = connector.contacts.firstWhere(
+        (c) => c.publicKeyHex == _bbsKeyHex,
+      );
+      expect(row['id'], 15);
+      expect(row['path_len'], contact.pathLength < 0 ? -1 : contact.pathLength);
+      expect(row['hash_width'], contact.pathHashWidth);
+    });
+
+    test('a rejected post stores no route', () async {
+      radio.replies['!p X nee'] = ["Unknown category 'X'. Valid: U=URGENT"];
+      await service.post(bbs, 'X', 'nee');
+      expect(await store.database.query('bbs_paths'), isEmpty);
+    });
+
     test('an error reply is passed on', () async {
       const reply = "Unknown category 'X'. Valid: U=URGENT";
       radio.replies['!p X hoi'] = [reply];

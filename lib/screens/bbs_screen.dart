@@ -11,16 +11,20 @@ import '../helpers/snack_bar_builder.dart';
 import '../l10n/l10n.dart';
 import '../models/bbs_board.dart';
 import '../models/bbs_message.dart';
+import '../models/channel_message.dart';
 import '../models/contact.dart';
 import '../services/bbs/bbs_protocol.dart';
 import '../services/bbs/bbs_sync_service.dart';
 import '../storage/prefs_manager.dart';
 import '../theme/mesh_theme.dart';
+import '../utils/platform_info.dart';
 import '../utils/radio_guard.dart';
 import '../widgets/adaptive_app_bar_title.dart';
+import '../widgets/chat_send_pipeline.dart' show copyChatMessageText;
 import '../widgets/chat_day_separator.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/mesh_ui.dart';
+import 'channel_message_path_screen.dart';
 
 /// Preference: show each message's BBS id, so people can refer to it.
 const String bbsShowNumbersKey = 'bbs_show_message_numbers';
@@ -274,6 +278,79 @@ class _BbsScreenState extends State<BbsScreen> {
     );
   }
 
+  /// The actions of a message, as the chat offers them for a DM. Path and
+  /// map only for messages this radio posted: of other posts the route to
+  /// the BBS is not known here.
+  void _showMessageActions(BbsMessage message) {
+    showMeshSheet(
+      context,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BottomSheetHeader(
+                title: message.text.characters.length > 40
+                    ? '${message.text.characters.take(40)}…'
+                    : message.text,
+              ),
+              if (message.hasPath)
+                ListTile(
+                  leading: const Icon(Icons.route),
+                  title: Text(context.l10n.chat_path),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _openMessagePath(message);
+                  },
+                ),
+              if (message.pathBytes?.isNotEmpty ?? false)
+                ListTile(
+                  leading: const Icon(Icons.map_outlined),
+                  title: Text(context.l10n.chat_viewPathOnMap),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _openMessagePath(message, openMap: true);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: Text(context.l10n.common_copy),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  copyChatMessageText(context, message.text);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Shows the stored route of an own post on the path screens of the chat.
+  void _openMessagePath(BbsMessage message, {bool openMap = false}) {
+    final pathMessage = ChannelMessage(
+      senderKey: null,
+      senderName: message.sender,
+      text: message.text,
+      timestamp: message.time.toLocal(),
+      isOutgoing: true,
+      status: ChannelMessageStatus.sent,
+      repeatCount: 0,
+      pathLength: message.pathLength,
+      pathHashWidth: message.pathHashWidth,
+      pathBytes: message.pathBytes,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => openMap
+            ? ChannelMessagePathMapScreen(message: pathMessage)
+            : ChannelMessagePathScreen(message: pathMessage),
+      ),
+    );
+  }
+
   Widget _buildWithoutBoard(
     BbsSyncService service,
     bool syncing,
@@ -339,6 +416,7 @@ class _BbsScreenState extends State<BbsScreen> {
                   message: message,
                   showCategory: category == null,
                   showNumber: _showNumbers,
+                  onActions: () => _showMessageActions(message),
                 ),
           ],
         ),
@@ -382,11 +460,16 @@ class _BbsMessageCard extends StatelessWidget {
     required this.message,
     required this.showCategory,
     required this.showNumber,
+    required this.onActions,
   });
 
   final BbsMessage message;
   final bool showCategory;
   final bool showNumber;
+
+  /// Opens the actions of the message: long press, or right click on
+  /// desktop.
+  final VoidCallback onActions;
 
   @override
   Widget build(BuildContext context) {
@@ -396,6 +479,8 @@ class _BbsMessageCard extends StatelessWidget {
     );
     final time = message.time;
     return MeshCard(
+      onLongPress: onActions,
+      onSecondaryTap: PlatformInfo.isDesktop ? onActions : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -434,7 +519,9 @@ class _BbsMessageCard extends StatelessWidget {
           ),
           if (showCategory) Text(message.category, style: meta),
           const SizedBox(height: 6),
-          SelectableText(message.text, style: theme.textTheme.bodyMedium),
+          // Plain text: selectable text would take the long press that
+          // opens the actions; copying is one of them.
+          Text(message.text, style: theme.textTheme.bodyMedium),
         ],
       ),
     );
