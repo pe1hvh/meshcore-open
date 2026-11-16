@@ -1,0 +1,33 @@
+name: BBS Windows build
+
+# Fork only: builds the Windows release of the BBS branch and keeps it
+# as a downloadable zip on the run page. Not meant for upstream.
+on:
+  push:
+    branches:
+      - feature/bbs
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release --no-pub
+      - name: Add Visual C++ runtime DLLs
+        shell: pwsh
+        run: |
+          $dst = "build\windows\x64\runner\Release"
+          foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll") {
+            Copy-Item "$env:WINDIR\System32\$dll" $dst
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meshcore-open-bbs-windows-${{ github.sha }}
+          path: build/windows/x64/runner/Release/
+          retention-days: 14
