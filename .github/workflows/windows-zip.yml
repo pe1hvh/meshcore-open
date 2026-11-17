@@ -36,3 +36,4 @@ jobs:
           name: meshcore-open-bbs-windows-${{ github.sha }}
           path: build/windows/x64/runner/Release/
           retention-days: 14
+
