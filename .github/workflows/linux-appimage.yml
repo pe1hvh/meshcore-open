@@ -2,8 +2,9 @@ name: BBS Linux build
 
 # Fork only: builds the Linux AppImages (x86_64 and aarch64 for the Pi)
 # of the BBS branch and keeps them as downloads on the run page.
-# The jobs are copied unchanged from upstream build.yml, which only
-# runs on tags and is switched off in this fork. Not meant for upstream.
+# The jobs are copied from upstream build.yml, which only runs on tags
+# and is switched off in this fork. The only addition is the step that
+# downloads ONNX Runtime before the build. Not meant for upstream.
 on:
   push:
     branches:
@@ -35,6 +36,23 @@ jobs:
           shellcheck scripts/build_appimage.sh scripts/appimage/*.sh scripts/appimage/AppRun
           bash scripts/appimage/test_packaging.sh
       - run: flutter pub get
+      - name: Download ONNX Runtime for flutter_onnxruntime
+        # See windows-zip.yml: fetch ONNX Runtime with retries and a clear
+        # HTTP error into the folder where the plugin looks first, so the
+        # plugin skips its own unchecked download. Keep ORT_VERSION equal to
+        # the default ONNXRUNTIME_VERSION of the flutter_onnxruntime in use.
+        env:
+          ORT_VERSION: "1.28.3"
+        run: |
+          set -euo pipefail
+          name="onnxruntime-linux-x64-$ORT_VERSION"
+          url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
+          dir="build/linux/x64/release/plugins/flutter_onnxruntime/onnxruntime"
+          mkdir -p "$dir"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 10 -o "$dir/ort.tgz" "$url"
+          tar -xzf "$dir/ort.tgz" -C "$dir"
+          rm "$dir/ort.tgz"
+          test -f "$dir/$name/include/onnxruntime_cxx_api.h"
       - run: flutter build linux --release --no-pub
       - uses: docker/setup-buildx-action@v3
       - name: Read AppImage base image
@@ -107,6 +125,23 @@ jobs:
           bash scripts/appimage/test_packaging.sh
       - run: flutter pub get
       - run: flutter test --reporter expanded
+      - name: Download ONNX Runtime for flutter_onnxruntime
+        # See windows-zip.yml: fetch ONNX Runtime with retries and a clear
+        # HTTP error into the folder where the plugin looks first, so the
+        # plugin skips its own unchecked download. Keep ORT_VERSION equal to
+        # the default ONNXRUNTIME_VERSION of the flutter_onnxruntime in use.
+        env:
+          ORT_VERSION: "1.28.3"
+        run: |
+          set -euo pipefail
+          name="onnxruntime-linux-aarch64-$ORT_VERSION"
+          url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
+          dir="build/linux/arm64/release/plugins/flutter_onnxruntime/onnxruntime"
+          mkdir -p "$dir"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 10 -o "$dir/ort.tgz" "$url"
+          tar -xzf "$dir/ort.tgz" -C "$dir"
+          rm "$dir/ort.tgz"
+          test -f "$dir/$name/include/onnxruntime_cxx_api.h"
       - name: Build ARM64 Linux release
         run: |
           if ! flutter build linux --release --no-pub --verbose > build/linux-arm64-build.log 2>&1; then
