@@ -37,22 +37,42 @@ jobs:
           bash scripts/appimage/test_packaging.sh
       - run: flutter pub get
       - name: Download ONNX Runtime for flutter_onnxruntime
-        # See windows-zip.yml: fetch ONNX Runtime with retries and a clear
-        # HTTP error into the folder where the plugin looks first, so the
-        # plugin skips its own unchecked download. Keep ORT_VERSION equal to
-        # the default ONNXRUNTIME_VERSION of the flutter_onnxruntime in use.
+        # flutter_onnxruntime downloads ONNX Runtime inside CMake from
+        # github.com/microsoft/onnxruntime without checking the result. Since
+        # 17-11-2026 that download returns 404. This step puts ONNX Runtime in
+        # the folder where the plugin looks first, so the plugin skips its own
+        # download: from GitHub when that works again, otherwise from the
+        # official NuGet package Microsoft.ML.OnnxRuntime (same version),
+        # rebuilt into the layout of the GitHub archive (include/ and lib/).
+        # Keep ORT_VERSION equal to the default ONNXRUNTIME_VERSION of the
+        # flutter_onnxruntime version in use.
         env:
           ORT_VERSION: "1.28.3"
         run: |
           set -euo pipefail
           name="onnxruntime-linux-x64-$ORT_VERSION"
-          url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
           dir="build/linux/x64/release/plugins/flutter_onnxruntime/onnxruntime"
+          gh_url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
+          nuget_url="https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$ORT_VERSION/microsoft.ml.onnxruntime.$ORT_VERSION.nupkg"
           mkdir -p "$dir"
-          curl -fL --retry 5 --retry-all-errors --retry-delay 10 -o "$dir/ort.tgz" "$url"
-          tar -xzf "$dir/ort.tgz" -C "$dir"
-          rm "$dir/ort.tgz"
+          if curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.tgz" "$gh_url"; then
+            tar -xzf "$dir/ort.tgz" -C "$dir"
+            rm "$dir/ort.tgz"
+          else
+            echo "GitHub download failed, using NuGet: $nuget_url"
+            curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.nupkg" "$nuget_url"
+            mkdir -p "$dir/nupkg" "$dir/$name/include" "$dir/$name/lib"
+            unzip -q "$dir/ort.nupkg" -d "$dir/nupkg"
+            ls -R "$dir/nupkg/runtimes/linux-x64" "$dir/nupkg/build/native/include"
+            cp -r "$dir/nupkg/build/native/include/." "$dir/$name/include/"
+            # Same layout as the GitHub archive: real file plus two symlinks.
+            cp "$dir/nupkg/runtimes/linux-x64/native/libonnxruntime.so" "$dir/$name/lib/libonnxruntime.so.$ORT_VERSION"
+            ln -s "libonnxruntime.so.$ORT_VERSION" "$dir/$name/lib/libonnxruntime.so.1"
+            ln -s "libonnxruntime.so.1" "$dir/$name/lib/libonnxruntime.so"
+            rm -rf "$dir/nupkg" "$dir/ort.nupkg"
+          fi
           test -f "$dir/$name/include/onnxruntime_cxx_api.h"
+          test -f "$dir/$name/lib/libonnxruntime.so"
       - run: flutter build linux --release --no-pub
       - uses: docker/setup-buildx-action@v3
       - name: Read AppImage base image
@@ -126,22 +146,42 @@ jobs:
       - run: flutter pub get
       - run: flutter test --reporter expanded
       - name: Download ONNX Runtime for flutter_onnxruntime
-        # See windows-zip.yml: fetch ONNX Runtime with retries and a clear
-        # HTTP error into the folder where the plugin looks first, so the
-        # plugin skips its own unchecked download. Keep ORT_VERSION equal to
-        # the default ONNXRUNTIME_VERSION of the flutter_onnxruntime in use.
+        # flutter_onnxruntime downloads ONNX Runtime inside CMake from
+        # github.com/microsoft/onnxruntime without checking the result. Since
+        # 17-11-2026 that download returns 404. This step puts ONNX Runtime in
+        # the folder where the plugin looks first, so the plugin skips its own
+        # download: from GitHub when that works again, otherwise from the
+        # official NuGet package Microsoft.ML.OnnxRuntime (same version),
+        # rebuilt into the layout of the GitHub archive (include/ and lib/).
+        # Keep ORT_VERSION equal to the default ONNXRUNTIME_VERSION of the
+        # flutter_onnxruntime version in use.
         env:
           ORT_VERSION: "1.28.3"
         run: |
           set -euo pipefail
           name="onnxruntime-linux-aarch64-$ORT_VERSION"
-          url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
           dir="build/linux/arm64/release/plugins/flutter_onnxruntime/onnxruntime"
+          gh_url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
+          nuget_url="https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$ORT_VERSION/microsoft.ml.onnxruntime.$ORT_VERSION.nupkg"
           mkdir -p "$dir"
-          curl -fL --retry 5 --retry-all-errors --retry-delay 10 -o "$dir/ort.tgz" "$url"
-          tar -xzf "$dir/ort.tgz" -C "$dir"
-          rm "$dir/ort.tgz"
+          if curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.tgz" "$gh_url"; then
+            tar -xzf "$dir/ort.tgz" -C "$dir"
+            rm "$dir/ort.tgz"
+          else
+            echo "GitHub download failed, using NuGet: $nuget_url"
+            curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.nupkg" "$nuget_url"
+            mkdir -p "$dir/nupkg" "$dir/$name/include" "$dir/$name/lib"
+            unzip -q "$dir/ort.nupkg" -d "$dir/nupkg"
+            ls -R "$dir/nupkg/runtimes/linux-arm64" "$dir/nupkg/build/native/include"
+            cp -r "$dir/nupkg/build/native/include/." "$dir/$name/include/"
+            # Same layout as the GitHub archive: real file plus two symlinks.
+            cp "$dir/nupkg/runtimes/linux-arm64/native/libonnxruntime.so" "$dir/$name/lib/libonnxruntime.so.$ORT_VERSION"
+            ln -s "libonnxruntime.so.$ORT_VERSION" "$dir/$name/lib/libonnxruntime.so.1"
+            ln -s "libonnxruntime.so.1" "$dir/$name/lib/libonnxruntime.so"
+            rm -rf "$dir/nupkg" "$dir/ort.nupkg"
+          fi
           test -f "$dir/$name/include/onnxruntime_cxx_api.h"
+          test -f "$dir/$name/lib/libonnxruntime.so"
       - name: Build ARM64 Linux release
         run: |
           if ! flutter build linux --release --no-pub --verbose > build/linux-arm64-build.log 2>&1; then
