@@ -42,7 +42,8 @@ jobs:
         # 17-11-2026 that download returns 404. This step puts ONNX Runtime in
         # the folder where the plugin looks first, so the plugin skips its own
         # download: from GitHub when that works again, otherwise from the
-        # official NuGet package Microsoft.ML.OnnxRuntime (same version),
+        # official NuGet package Microsoft.ML.OnnxRuntime (highest version of
+        # the same major.minor, as NuGet lacks some patch releases),
         # rebuilt into the layout of the GitHub archive (include/ and lib/).
         # Keep ORT_VERSION equal to the default ONNXRUNTIME_VERSION of the
         # flutter_onnxruntime version in use.
@@ -53,21 +54,27 @@ jobs:
           name="onnxruntime-linux-x64-$ORT_VERSION"
           dir="build/linux/x64/release/plugins/flutter_onnxruntime/onnxruntime"
           gh_url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
-          nuget_url="https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$ORT_VERSION/microsoft.ml.onnxruntime.$ORT_VERSION.nupkg"
           mkdir -p "$dir"
           if curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.tgz" "$gh_url"; then
             tar -xzf "$dir/ort.tgz" -C "$dir"
             rm "$dir/ort.tgz"
           else
-            echo "GitHub download failed, using NuGet: $nuget_url"
+            # NuGet does not carry every patch release: take the highest
+            # version with the same major.minor (e.g. 1.28.x for 1.28.3).
+            minor="${ORT_VERSION%.*}"
+            nv="$(curl -fsSL --retry 3 https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/index.json \
+                  | jq -r '.versions[]' | grep -E "^${minor//./\\.}\\.[0-9]+$" | sort -V | tail -1)"
+            test -n "$nv" || { echo "No $minor.x of Microsoft.ML.OnnxRuntime on NuGet"; exit 1; }
+            nuget_url="https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$nv/microsoft.ml.onnxruntime.$nv.nupkg"
+            echo "GitHub download failed, using NuGet $nv for $name: $nuget_url"
             curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.nupkg" "$nuget_url"
             mkdir -p "$dir/nupkg" "$dir/$name/include" "$dir/$name/lib"
             unzip -q "$dir/ort.nupkg" -d "$dir/nupkg"
             ls -R "$dir/nupkg/runtimes/linux-x64" "$dir/nupkg/build/native/include"
             cp -r "$dir/nupkg/build/native/include/." "$dir/$name/include/"
             # Same layout as the GitHub archive: real file plus two symlinks.
-            cp "$dir/nupkg/runtimes/linux-x64/native/libonnxruntime.so" "$dir/$name/lib/libonnxruntime.so.$ORT_VERSION"
-            ln -s "libonnxruntime.so.$ORT_VERSION" "$dir/$name/lib/libonnxruntime.so.1"
+            cp "$dir/nupkg/runtimes/linux-x64/native/libonnxruntime.so" "$dir/$name/lib/libonnxruntime.so.$nv"
+            ln -s "libonnxruntime.so.$nv" "$dir/$name/lib/libonnxruntime.so.1"
             ln -s "libonnxruntime.so.1" "$dir/$name/lib/libonnxruntime.so"
             rm -rf "$dir/nupkg" "$dir/ort.nupkg"
           fi
@@ -151,7 +158,8 @@ jobs:
         # 17-11-2026 that download returns 404. This step puts ONNX Runtime in
         # the folder where the plugin looks first, so the plugin skips its own
         # download: from GitHub when that works again, otherwise from the
-        # official NuGet package Microsoft.ML.OnnxRuntime (same version),
+        # official NuGet package Microsoft.ML.OnnxRuntime (highest version of
+        # the same major.minor, as NuGet lacks some patch releases),
         # rebuilt into the layout of the GitHub archive (include/ and lib/).
         # Keep ORT_VERSION equal to the default ONNXRUNTIME_VERSION of the
         # flutter_onnxruntime version in use.
@@ -162,21 +170,27 @@ jobs:
           name="onnxruntime-linux-aarch64-$ORT_VERSION"
           dir="build/linux/arm64/release/plugins/flutter_onnxruntime/onnxruntime"
           gh_url="https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/$name.tgz"
-          nuget_url="https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$ORT_VERSION/microsoft.ml.onnxruntime.$ORT_VERSION.nupkg"
           mkdir -p "$dir"
           if curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.tgz" "$gh_url"; then
             tar -xzf "$dir/ort.tgz" -C "$dir"
             rm "$dir/ort.tgz"
           else
-            echo "GitHub download failed, using NuGet: $nuget_url"
+            # NuGet does not carry every patch release: take the highest
+            # version with the same major.minor (e.g. 1.28.x for 1.28.3).
+            minor="${ORT_VERSION%.*}"
+            nv="$(curl -fsSL --retry 3 https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/index.json \
+                  | jq -r '.versions[]' | grep -E "^${minor//./\\.}\\.[0-9]+$" | sort -V | tail -1)"
+            test -n "$nv" || { echo "No $minor.x of Microsoft.ML.OnnxRuntime on NuGet"; exit 1; }
+            nuget_url="https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$nv/microsoft.ml.onnxruntime.$nv.nupkg"
+            echo "GitHub download failed, using NuGet $nv for $name: $nuget_url"
             curl -fL --retry 3 --retry-delay 5 -o "$dir/ort.nupkg" "$nuget_url"
             mkdir -p "$dir/nupkg" "$dir/$name/include" "$dir/$name/lib"
             unzip -q "$dir/ort.nupkg" -d "$dir/nupkg"
             ls -R "$dir/nupkg/runtimes/linux-arm64" "$dir/nupkg/build/native/include"
             cp -r "$dir/nupkg/build/native/include/." "$dir/$name/include/"
             # Same layout as the GitHub archive: real file plus two symlinks.
-            cp "$dir/nupkg/runtimes/linux-arm64/native/libonnxruntime.so" "$dir/$name/lib/libonnxruntime.so.$ORT_VERSION"
-            ln -s "libonnxruntime.so.$ORT_VERSION" "$dir/$name/lib/libonnxruntime.so.1"
+            cp "$dir/nupkg/runtimes/linux-arm64/native/libonnxruntime.so" "$dir/$name/lib/libonnxruntime.so.$nv"
+            ln -s "libonnxruntime.so.$nv" "$dir/$name/lib/libonnxruntime.so.1"
             ln -s "libonnxruntime.so.1" "$dir/$name/lib/libonnxruntime.so"
             rm -rf "$dir/nupkg" "$dir/ort.nupkg"
           fi

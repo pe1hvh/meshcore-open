@@ -26,7 +26,8 @@ jobs:
         # 17-11-2026 that download returns 404. This step puts ONNX Runtime in
         # the folder where the plugin looks first, so the plugin skips its own
         # download: from GitHub when that works again, otherwise from the
-        # official NuGet package Microsoft.ML.OnnxRuntime (same version),
+        # official NuGet package Microsoft.ML.OnnxRuntime (highest version of
+        # the same major.minor, as NuGet lacks some patch releases),
         # rebuilt into the layout of the GitHub archive (include\ and lib\).
         # Keep ORT_VERSION equal to the default ONNXRUNTIME_VERSION of the
         # flutter_onnxruntime version in use.
@@ -37,14 +38,21 @@ jobs:
           $name     = "onnxruntime-win-x64-$env:ORT_VERSION"
           $dir      = "build\windows\x64\plugins\flutter_onnxruntime\onnxruntime"
           $ghUrl    = "https://github.com/microsoft/onnxruntime/releases/download/v$env:ORT_VERSION/$name.zip"
-          $nugetUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$env:ORT_VERSION/microsoft.ml.onnxruntime.$env:ORT_VERSION.nupkg"
           New-Item -ItemType Directory -Force $dir | Out-Null
           curl.exe -fL --retry 3 --retry-delay 5 -o "$dir\ort.zip" $ghUrl
           if ($LASTEXITCODE -eq 0) {
             tar -xf "$dir\ort.zip" -C $dir
             Remove-Item "$dir\ort.zip"
           } else {
-            Write-Host "GitHub download failed, using NuGet: $nugetUrl"
+            # NuGet does not carry every patch release: take the highest
+            # version with the same major.minor (e.g. 1.28.x for 1.28.3).
+            $minor = $env:ORT_VERSION.Substring(0, $env:ORT_VERSION.LastIndexOf('.'))
+            $nv = (Invoke-RestMethod "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/index.json").versions |
+                  Where-Object { $_ -match "^$([regex]::Escape($minor))\.\d+$" } |
+                  Sort-Object { [version]$_ } | Select-Object -Last 1
+            if (-not $nv) { throw "No $minor.x of Microsoft.ML.OnnxRuntime on NuGet" }
+            $nugetUrl = "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/$nv/microsoft.ml.onnxruntime.$nv.nupkg"
+            Write-Host "GitHub download failed, using NuGet $nv for ${name}: $nugetUrl"
             curl.exe -fL --retry 3 --retry-delay 5 -o "$dir\ort.nupkg" $nugetUrl
             if ($LASTEXITCODE -ne 0) { throw "NuGet download failed ($LASTEXITCODE): $nugetUrl" }
             New-Item -ItemType Directory -Force "$dir\nupkg", "$dir\$name\include", "$dir\$name\lib" | Out-Null
