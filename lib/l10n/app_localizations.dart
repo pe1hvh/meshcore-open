@@ -12759,6 +12759,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show message numbers'**
   String get bbs_showNumbers;
+
+  /// No description provided for @bbs_progressSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Request sent…'**
+  String get bbs_progressSent;
+
+  /// No description provided for @bbs_progressWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the BBS…'**
+  String get bbs_progressWaiting;
+
+  /// Progress of a BBS sync
+  ///
+  /// In en, this message translates to:
+  /// **'{received} of {total} messages received'**
+  String bbs_progressReceiving(int received, int total);
+
+  /// A BBS reply broke off; the sync goes on from the messages received
+  ///
+  /// In en, this message translates to:
+  /// **'Poor connection, continuing from {received} messages…'**
+  String bbs_progressResuming(int received);
 }
 
 class _AppLocalizationsDelegate

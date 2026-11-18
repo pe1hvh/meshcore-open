@@ -3502,6 +3502,18 @@ class MeshCoreConnector extends ChangeNotifier {
     bool Function(Message message) interceptor,
   ) => _contactMessageInterceptors.remove(interceptor);
 
+  final List<bool Function(int ackHash)> _sendConfirmedInterceptors = [];
+
+  /// A send confirmation (`PUSH_CODE_SEND_CONFIRMED`) whose ACK hash
+  /// [interceptor] claims (returns `true` for) is not passed on to the
+  /// repeater commands or the message retry service. The BBS sync uses this
+  /// to see that the BBS node received a request.
+  void addSendConfirmedInterceptor(bool Function(int ackHash) interceptor) =>
+      _sendConfirmedInterceptors.add(interceptor);
+
+  void removeSendConfirmedInterceptor(bool Function(int ackHash) interceptor) =>
+      _sendConfirmedInterceptors.remove(interceptor);
+
   @visibleForTesting
   static bool shouldIgnoreLateTcpConnectError({
     required bool manualDisconnect,
@@ -8888,6 +8900,9 @@ class MeshCoreConnector extends ChangeNotifier {
       final ackHash = reader.readUInt32LE();
       final tripTimeMs = reader.readUInt32LE();
 
+      if (_sendConfirmedInterceptors.any((claims) => claims(ackHash))) {
+        return;
+      }
       if (_handleRepeaterCommandAck(ackHash, tripTimeMs)) {
         return;
       }

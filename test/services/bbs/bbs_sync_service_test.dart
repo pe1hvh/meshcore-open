@@ -18,6 +18,7 @@ import 'package:meshcore_open/storage/prefs_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'meshcore_gui_compressed_replies.dart';
 import 'meshcore_gui_replies.dart';
 
 final _bbsKeyHex = ReviewScript.contacts.first.publicKeyHex;
@@ -35,19 +36,26 @@ class _BbsRadio extends ReviewRadio {
   final Map<String, List<String>> replies = {};
   final List<String> received = [];
 
+  /// Attempt number and timestamp of every command in [received].
+  final List<(int, int)> attempts = [];
+
+  /// Leave sends to the BBS unconfirmed: no SENT and no ACK, as when the
+  /// BBS node is out of reach.
+  bool dropAcks = false;
+
   /// DMs sent twice, as the BBS does after a lost ACK.
   final Set<String> resend = {};
   var _timestamp = 1800000000;
 
   @override
   void handle(Uint8List frame) {
-    super.handle(frame);
-    if (frame.isEmpty || frame[0] != cmdSendTxtMsg || frame.length < 13) {
-      return;
-    }
-    if (pubKeyToHex(frame.sublist(7, 13)) != _bbsKeyHex.substring(0, 12)) {
-      return;
-    }
+    final toBbs =
+        frame.length >= 13 &&
+        frame[0] == cmdSendTxtMsg &&
+        pubKeyToHex(frame.sublist(7, 13)) == _bbsKeyHex.substring(0, 12);
+    if (!toBbs || !dropAcks) super.handle(frame);
+    if (!toBbs) return;
+    attempts.add((frame[2], readUint32LE(frame, 3)));
     var end = frame.length;
     while (end > 13 && frame[end - 1] == 0) {
       end--;
@@ -124,13 +132,16 @@ void main() {
   setUp(() async {
     radio.replies.clear();
     radio.received.clear();
+    radio.attempts.clear();
     radio.resend.clear();
+    radio.dropAcks = false;
     store = await SqliteBbsStore.open(
       inMemoryDatabasePath,
       factory: databaseFactoryFfiNoIsolate,
     );
     service = BbsSyncService(connector, store)
-      ..replyTimeout = const Duration(milliseconds: 300);
+      ..replyTimeout = const Duration(milliseconds: 300)
+      ..compress = false;
   });
 
   tearDown(() async {
@@ -168,10 +179,29 @@ void main() {
     expect(service.lastResult(_bbsKeyHex), BbsSyncResult.done);
   });
 
-  test('a silent BBS gives noReply after three requests', () async {
+  test('an unreachable BBS gives noReply after three attempts', () async {
     service.replyTimeout = const Duration(milliseconds: 50);
+    radio.dropAcks = true;
     expect(await service.sync(bbs), BbsSyncResult.noReply);
     expect(radio.received, ['!h', '!h', '!h']);
+    // One request: the same timestamp, so the BBS can tell a repeat.
+    expect(radio.attempts.map((a) => a.$1), [0, 1, 2]);
+    expect(radio.attempts.map((a) => a.$2).toSet(), hasLength(1));
+  });
+
+  test('a confirmed request is not sent again', () async {
+    service.replyTimeout = const Duration(milliseconds: 50);
+    expect(await service.sync(bbs), BbsSyncResult.noReply);
+    expect(radio.received, ['!h']);
+  });
+
+  test('confirmed requests are sent once each', () async {
+    radio.replies
+      ..['!h'] = guiHelp
+      ..['!x 0 0'] = guiSync00
+      ..['!x 11 1'] = guiSync111;
+    expect(await service.sync(bbs), BbsSyncResult.done);
+    expect(radio.attempts.map((a) => a.$1), [0, 0, 0]);
   });
 
   test('a reply cut short is resumed from the last whole record', () async {
@@ -230,6 +260,187 @@ void main() {
     await first;
     expect(service.isSyncing(_bbsKeyHex), isFalse);
     expect(radio.received, ['!h', '!x 0 0']);
+  });
+
+  group('compressed replies', () {
+    setUp(() => service.compress = true);
+
+    test('a compressed sync stores the same messages', () async {
+      final chatBefore = chatTexts();
+      radio.replies
+        ..['!h'] = guiHelp
+        ..['!x 0 0 z'] = guiZ00
+        ..['!x 11 1 z'] = guiZ111;
+
+      expect(await service.sync(bbs), BbsSyncResult.done);
+      expect(radio.received, ['!h', '!x 0 0 z', '!x 11 1 z']);
+      final board = (await store.board(device, _bbsKeyHex))!;
+      expect(board.lastId, 13);
+      expect(board.deletionSeq, 1);
+      final messages = await store.messages(device, _bbsKeyHex);
+      expect(messages, hasLength(12));
+      expect(messages.first.text, '${'x' * 135} woord');
+      expect(chatTexts(), chatBefore);
+    });
+
+    test(
+      'a broken compressed reply resumes after the last whole record',
+      () async {
+        service.replyTimeout = const Duration(milliseconds: 100);
+        radio.replies
+          ..['!h'] = guiHelp
+          ..['!x 0 0 z'] = guiZ00.take(2).toList()
+          ..['!x 4 0 z'] = guiZ40;
+        final stages = <BbsSyncStage>[];
+        void listener() {
+          final stage = service.progress(_bbsKeyHex)?.stage;
+          if (stage != null && (stages.isEmpty || stages.last != stage)) {
+            stages.add(stage);
+          }
+        }
+
+        service.addListener(listener);
+        expect(await service.sync(bbs), BbsSyncResult.done);
+        service.removeListener(listener);
+        expect(radio.received, ['!h', '!x 0 0 z', '!x 4 0 z']);
+        final ids = (await store.messages(device, _bbsKeyHex)).map((m) => m.id);
+        expect(ids.toSet(), {1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13});
+        expect(stages, contains(BbsSyncStage.resuming));
+        expect(stages, contains(BbsSyncStage.receiving));
+      },
+    );
+
+    test('a BBS without compression is asked again without the flag', () async {
+      radio.replies
+        ..['!h'] = guiHelp
+        ..['!x 0 0 z'] = guiUsage
+        ..['!x 0 0'] = guiSync00
+        ..['!x 11 1'] = guiSync111
+        ..['!x 13 1'] = guiSync131;
+
+      expect(await service.sync(bbs), BbsSyncResult.done);
+      expect(await service.sync(bbs), BbsSyncResult.done);
+      expect(radio.received, [
+        '!h',
+        '!x 0 0 z',
+        '!x 0 0',
+        '!x 11 1',
+        '!x 13 1',
+      ]);
+      expect(await store.messages(device, _bbsKeyHex), hasLength(12));
+    });
+
+    test('a compressed reply to another request is not used', () async {
+      service.replyTimeout = const Duration(milliseconds: 50);
+      final chatBefore = chatTexts();
+      radio.replies
+        ..['!h'] = guiHelp
+        ..['!x 0 0 z'] = guiZ40;
+      expect(await service.sync(bbs), BbsSyncResult.noReply);
+      expect(await store.messages(device, _bbsKeyHex), isEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(chatTexts(), chatBefore);
+    });
+  });
+
+  test('an older plain reply is not used and stays out of the chat', () async {
+    radio.replies
+      ..['!h'] = guiHelp
+      ..['!x 0 0'] = guiSync00
+      ..['!x 11 1'] = guiSync111;
+    expect(await service.sync(bbs), BbsSyncResult.done);
+    final chatBefore = chatTexts();
+
+    service.replyTimeout = const Duration(milliseconds: 50);
+    radio.replies['!x 13 1'] = guiSync00;
+    expect(await service.sync(bbs), BbsSyncResult.noReply);
+    final board = (await store.board(device, _bbsKeyHex))!;
+    expect(board.lastId, 13);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(chatTexts(), chatBefore);
+  });
+
+  test('a BBS that confirms but never answers gives noReply', () async {
+    radio.replies
+      ..['!h'] = guiHelp
+      ..['!x 0 0'] = guiSync131;
+    expect(await service.sync(bbs), BbsSyncResult.done);
+    service.replyTimeout = const Duration(milliseconds: 50);
+    radio.replies.clear();
+    expect(await service.sync(bbs), BbsSyncResult.noReply);
+    expect(radio.received.last, '!x 0 1');
+  });
+
+  test('a stray part of an older reply is not taken into the reply', () async {
+    final chatBefore = chatTexts();
+    radio.replies
+      ..['!h'] = guiHelp
+      ..['!x 0 0'] = [
+        guiSync00[0],
+        guiSync00[1],
+        guiSync00[1], // again, with a new timestamp: ids 3-5 already seen
+        ...guiSync00.skip(2),
+      ]
+      ..['!x 11 1'] = guiSync111;
+    expect(await service.sync(bbs), BbsSyncResult.done);
+    expect(radio.received, ['!h', '!x 0 0', '!x 11 1']);
+    final board = (await store.board(device, _bbsKeyHex))!;
+    expect(board.lastId, 13);
+    expect(board.deletionSeq, 1);
+    expect(await store.messages(device, _bbsKeyHex), hasLength(12));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(chatTexts(), chatBefore);
+  });
+
+  test('the reply window covers two routed tries and one flood', () {
+    expect(
+      BbsSyncService.retryWindow(
+        const Duration(seconds: 10),
+        const Duration(seconds: 8),
+      ),
+      const Duration(seconds: 42),
+    );
+  });
+
+  test('left-over sync parts after a sync stay out of the chat', () async {
+    radio.replies
+      ..['!h'] = guiHelp
+      ..['!x 0 0'] = guiSync131;
+    expect(await service.sync(bbs), BbsSyncResult.done);
+    final chatBefore = chatTexts();
+    radio.emitForTest(
+      ReviewFrames.contactMessage(
+        senderPublicKey: hexToPubKey(_bbsKeyHex),
+        text: guiSync40[3],
+        timestampSecs: 1800000600,
+        pathLen: 1,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(chatTexts(), chatBefore);
+  });
+
+  test('messages are stored while the reply arrives', () async {
+    radio.replies
+      ..['!h'] = guiHelp
+      ..['!x 0 0'] = guiSync00
+      ..['!x 11 1'] = guiSync111;
+    final revisions = <int>{};
+    final totals = <int>{};
+    void listener() {
+      revisions.add(service.revision(_bbsKeyHex));
+      final progress = service.progress(_bbsKeyHex);
+      if (progress?.stage == BbsSyncStage.receiving) {
+        totals.add(progress!.total);
+      }
+    }
+
+    service.addListener(listener);
+    expect(await service.sync(bbs), BbsSyncResult.done);
+    service.removeListener(listener);
+    // More than one store step within the first reply of 6 parts.
+    expect(revisions.length, greaterThan(2));
+    expect(totals, contains(10));
   });
 
   group('post', () {

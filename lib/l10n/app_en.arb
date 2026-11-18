@@ -4405,5 +4405,11 @@
   },
   "bbs_postNoReply": "No confirmation from the BBS. After the next sync you can see whether the message arrived.",
   "bbs_showNumbers": "Show message numbers",
+  "bbs_progressSent": "Request sent…",
+  "bbs_progressWaiting": "Waiting for the BBS…",
+  "bbs_progressReceiving": "{received} of {total} messages received",
+  "@bbs_progressReceiving": {"description": "Progress of a BBS sync", "placeholders": {"received": {"type": "int"}, "total": {"type": "int"}}},
+  "bbs_progressResuming": "Poor connection, continuing from {received} messages…",
+  "@bbs_progressResuming": {"description": "A BBS reply broke off; the sync goes on from the messages received", "placeholders": {"received": {"type": "int"}}},
   "@bbs_showNumbers": {"description": "BBS screen menu switch that shows each message's BBS id (#14), so people can refer to a message"}
 }

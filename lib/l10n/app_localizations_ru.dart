@@ -7680,4 +7680,20 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get bbs_showNumbers => 'Show message numbers';
+
+  @override
+  String get bbs_progressSent => 'Request sent…';
+
+  @override
+  String get bbs_progressWaiting => 'Waiting for the BBS…';
+
+  @override
+  String bbs_progressReceiving(int received, int total) {
+    return '$received of $total messages received';
+  }
+
+  @override
+  String bbs_progressResuming(int received) {
+    return 'Poor connection, continuing from $received messages…';
+  }
 }

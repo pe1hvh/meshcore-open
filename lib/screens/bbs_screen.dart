@@ -64,18 +64,46 @@ class _BbsScreenState extends State<BbsScreen> {
 
   String get _bbsKey => widget.contact.publicKeyHex;
 
+  BbsSyncService? _service;
+  int _revision = 0;
+
   @override
   void initState() {
     super.initState();
     unawaited(_open());
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_service != null) return;
+    _service = context.read<BbsSyncService?>();
+    _revision = _service?.revision(_bbsKey) ?? 0;
+    _service?.addListener(_onServiceChanged);
+  }
+
+  @override
+  void dispose() {
+    _service?.removeListener(_onServiceChanged);
+    super.dispose();
+  }
+
+  /// Reloads the list while a sync stores messages part by part.
+  void _onServiceChanged() {
+    final revision = _service?.revision(_bbsKey) ?? 0;
+    if (revision == _revision) return;
+    _revision = revision;
+    unawaited(_load());
+  }
+
+  /// Opening fetches new messages; the categories only when none are known
+  /// yet or the BBS reports an unknown one.
   Future<void> _open() async {
     await _load();
     if (!mounted || isRadioReadOnly(context.read<MeshCoreConnector>())) {
       return;
     }
-    await _sync(refreshCategories: true);
+    await _sync();
   }
 
   Future<void> _load() async {
@@ -267,10 +295,19 @@ class _BbsScreenState extends State<BbsScreen> {
               ),
         body: SafeArea(
           top: false,
-          child: TabBarView(
+          child: Column(
             children: [
-              _buildList(null, readOnly),
-              for (final category in categories) _buildList(category, readOnly),
+              if (_progressText(service.progress(_bbsKey)) case final text?)
+                _ProgressLine(text: text),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildList(null, readOnly),
+                    for (final category in categories)
+                      _buildList(category, readOnly),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -351,6 +388,21 @@ class _BbsScreenState extends State<BbsScreen> {
     );
   }
 
+  /// What a running request is doing, for the line under the tabs; `null`
+  /// when none runs.
+  String? _progressText(BbsSyncProgress? progress) {
+    if (progress == null) return null;
+    final l10n = context.l10n;
+    return switch (progress.stage) {
+      BbsSyncStage.requestSent => l10n.bbs_progressSent,
+      BbsSyncStage.waiting => l10n.bbs_progressWaiting,
+      BbsSyncStage.receiving when progress.total > 0 =>
+        l10n.bbs_progressReceiving(progress.received, progress.total),
+      BbsSyncStage.receiving => l10n.bbs_progressWaiting,
+      BbsSyncStage.resuming => l10n.bbs_progressResuming(progress.received),
+    };
+  }
+
   Widget _buildWithoutBoard(
     BbsSyncService service,
     bool syncing,
@@ -364,7 +416,10 @@ class _BbsScreenState extends State<BbsScreen> {
             const CircularProgressIndicator(),
             if (_loaded) ...[
               const SizedBox(height: 16),
-              Text(context.l10n.bbs_fetching),
+              Text(
+                _progressText(service.progress(_bbsKey)) ??
+                    context.l10n.bbs_fetching,
+              ),
             ],
           ],
         ),
@@ -625,6 +680,36 @@ class _BbsPostDialogState extends State<_BbsPostDialog> {
           child: Text(context.l10n.bbs_post),
         ),
       ],
+    );
+  }
+}
+
+/// One line of text under the tabs while a request to the BBS runs.
+class _ProgressLine extends StatelessWidget {
+  const _ProgressLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.bodySmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

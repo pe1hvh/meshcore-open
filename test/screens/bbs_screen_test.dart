@@ -130,6 +130,8 @@ void main() {
     bool withBoard = true,
     _OfflineConnector? radio,
     int? ownPost,
+    Duration replyTimeout = const Duration(milliseconds: 10),
+    bool settle = true,
   }) async {
     if (radio != null) connector = radio;
     await tester.runAsync(() async {
@@ -164,8 +166,7 @@ void main() {
         }
       }
     });
-    service = BbsSyncService(connector, store)
-      ..replyTimeout = const Duration(milliseconds: 10);
+    service = BbsSyncService(connector, store)..replyTimeout = replyTimeout;
     addTearDown(() async {
       service.dispose();
       await tester.runAsync(store.close);
@@ -192,7 +193,11 @@ void main() {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
   }
 
   testWidgets('one tab for all messages and one per category', (tester) async {
@@ -284,6 +289,31 @@ void main() {
     );
     expect(withService, isTrue);
     expect(without, isFalse);
+  });
+
+  testWidgets('opening asks only for new messages and shows the progress', (
+    tester,
+  ) async {
+    final radio = _SilentConnector();
+    await open(
+      tester,
+      radio: radio,
+      replyTimeout: const Duration(seconds: 10),
+      settle: false,
+    );
+    // Categories are known: no !h; a compressed reply is asked for.
+    expect(radio.sent, ['!x 13 1 z']);
+    expect(find.text('Request sent…'), findsOneWidget);
+    // Unconfirmed: two more attempts, then the sync gives up.
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(seconds: 11));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+    }
+    await tester.pumpAndSettle();
+    expect(radio.sent, ['!x 13 1 z', '!x 13 1 z', '!x 13 1 z']);
+    expect(find.text('Request sent…'), findsNothing);
   });
 
   testWidgets('offline there is no Post button', (tester) async {

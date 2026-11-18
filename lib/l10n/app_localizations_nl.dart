@@ -7622,4 +7622,20 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get bbs_showNumbers => 'Berichtnummers tonen';
+
+  @override
+  String get bbs_progressSent => 'Verzoek verstuurd…';
+
+  @override
+  String get bbs_progressWaiting => 'Wacht op BBS…';
+
+  @override
+  String bbs_progressReceiving(int received, int total) {
+    return '$received van $total berichten ontvangen';
+  }
+
+  @override
+  String bbs_progressResuming(int received) {
+    return 'Verbinding slecht, verder vanaf $received berichten…';
+  }
 }

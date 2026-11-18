@@ -3698,5 +3698,9 @@
   "bbs_posted": "Bericht #{id} geplaatst",
   "bbs_postRejected": "De BBS heeft het bericht niet geaccepteerd: {reply}",
   "bbs_postNoReply": "Geen bevestiging van de BBS. Na het synchroniseren zie je of het bericht is aangekomen.",
-  "bbs_showNumbers": "Berichtnummers tonen"
+  "bbs_showNumbers": "Berichtnummers tonen",
+  "bbs_progressSent": "Verzoek verstuurd…",
+  "bbs_progressWaiting": "Wacht op BBS…",
+  "bbs_progressReceiving": "{received} van {total} berichten ontvangen",
+  "bbs_progressResuming": "Verbinding slecht, verder vanaf {received} berichten…"
 }

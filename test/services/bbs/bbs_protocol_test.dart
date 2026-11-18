@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meshcore_open/models/bbs_board.dart';
 import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
 
+import 'meshcore_gui_compressed_replies.dart';
 import 'meshcore_gui_replies.dart';
 
 String joined(List<String> dms) => dms.join('\n');
@@ -214,6 +215,84 @@ void main() {
         const BbsBoard(categories: categories).retentionDaysFor('URGENT'),
         BbsBoard.defaultRetentionDays,
       );
+    });
+  });
+
+  group('compressed replies (meshcore-gui 1.26.4)', () {
+    test('the flag follows both numbers', () {
+      expect(BbsProtocol.syncCommand(12, 3, compressed: true), '!x 12 3 z');
+    });
+
+    test('inflated, a compressed reply is the X1 reply with an X2 header', () {
+      final inner = BbsProtocol.inflateSync(joined(guiZ00))!;
+      final plain = joined(guiSync00).split('\n');
+      final lines = inner.split('\n');
+      expect(lines.first, '${plain.first.replaceFirst('X1|', 'X2|')}|0|0');
+      final reply = BbsProtocol.parseSync(inner)!;
+      final x1 = BbsProtocol.parseSync(joined(guiSync00))!;
+      expect(reply.isComplete, isTrue);
+      expect(reply.requestSinceId, 0);
+      expect(reply.requestSinceDeletion, 0);
+      expect(x1.requestSinceId, isNull);
+      expect(
+        reply.records.map((r) => (r.id, r.text)),
+        x1.records.map((r) => (r.id, r.text)),
+      );
+      expect(reply.deletedIds, x1.deletedIds);
+    });
+
+    test('the first parts give only whole lines', () {
+      final full = BbsProtocol.inflateSync(joined(guiZ00))!;
+      for (var k = 1; k < guiZ00.length; k++) {
+        final part = BbsProtocol.inflateSync(joined(guiZ00.take(k).toList()))!;
+        expect(full.startsWith(part), isTrue);
+        final reply = BbsProtocol.parseSync(part);
+        if (reply != null) expect(reply.isComplete, isFalse);
+      }
+    });
+
+    test('a damaged reply is a FormatException', () {
+      expect(
+        () => BbsProtocol.inflateSync('${BbsProtocol.compressedTag}ab#d'),
+        throwsFormatException,
+      );
+    });
+
+    test('plain text is not a compressed reply', () {
+      expect(BbsProtocol.inflateSync(joined(guiSync00)), isNull);
+    });
+  });
+
+  group('looksLikeSyncData', () {
+    test('recognises parts of sync and help replies', () {
+      for (final dm in [...guiSync00, guiSync40[3], guiZ00.first]) {
+        expect(BbsProtocol.looksLikeSyncData(dm), isTrue, reason: dm);
+      }
+      for (final dm in guiZ00.skip(1)) {
+        expect(BbsProtocol.looksLikeSyncData(dm), isFalse, reason: dm);
+        expect(
+          BbsProtocol.looksLikeSyncData(dm, compressed: true),
+          isTrue,
+          reason: dm,
+        );
+      }
+      expect(BbsProtocol.looksLikeSyncData(guiHelp.first), isFalse);
+      expect(BbsProtocol.looksLikeSyncData(guiHelp.first, help: true), isTrue);
+    });
+
+    test('ordinary messages are not sync data', () {
+      for (final dm in [
+        'Hallo van de operator',
+        'Test',
+        '',
+        'ok?',
+        // A !r reply, which a user may ask for in the chat.
+        '2026-11-18 12:30 PE1HVH [URGENT] Dijk lekt\n'
+            '2026-11-18 12:31 PE1OUM [STATUS] ok',
+        'Zelfstandigenaftrek',
+      ]) {
+        expect(BbsProtocol.looksLikeSyncData(dm), isFalse, reason: dm);
+      }
     });
   });
 }

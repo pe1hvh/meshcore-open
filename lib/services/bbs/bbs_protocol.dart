@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import '../../models/bbs_board.dart';
 import '../../models/bbs_message.dart';
+import 'bbs_inflate.dart';
 
 /// One message record from a `!x` reply, after joining its `+` lines.
 class BbsSyncRecord {
@@ -23,7 +26,9 @@ class BbsSyncRecord {
   final String text;
 }
 
-/// A parsed `!x` reply (protocol `X1`, meshcore-gui 1.26.0).
+/// A parsed `!x` reply: protocol `X1` (meshcore-gui 1.26.0), or `X2`, the
+/// header inside a compressed reply (meshcore-gui 1.26.4), which adds the
+/// cursors of the request.
 class BbsSyncReply {
   const BbsSyncReply({
     required this.epoch,
@@ -36,6 +41,8 @@ class BbsSyncReply {
     required this.retention,
     required this.records,
     required this.deletedIds,
+    this.requestSinceId,
+    this.requestSinceDeletion,
   });
 
   final String epoch;
@@ -66,6 +73,11 @@ class BbsSyncReply {
   final List<BbsSyncRecord> records;
   final List<int> deletedIds;
 
+  /// `since_id` and `since_del` of the request this reply answers, from an
+  /// `X2` header; `null` for `X1`, which does not repeat them.
+  final int? requestSinceId;
+  final int? requestSinceDeletion;
+
   /// Every announced line arrived.
   bool get isComplete => receivedLines == lineCount;
 
@@ -90,8 +102,85 @@ class BbsProtocol {
   static const String helpCommand = '!h';
   static const String syncHeaderTag = 'X1';
 
-  static String syncCommand(int sinceId, int sinceDeletion) =>
-      '!x $sinceId $sinceDeletion';
+  /// Header tag inside a compressed reply: `X1` plus the request cursors.
+  static const String syncEchoHeaderTag = 'X2';
+
+  /// Start of the first DM of a compressed reply (meshcore-gui 1.26.4).
+  static const String compressedTag = 'Z1|';
+
+  /// `!x` asks for a compressed reply with this flag after both numbers.
+  static const String compressFlag = 'z';
+
+  static String syncCommand(
+    int sinceId,
+    int sinceDeletion, {
+    bool compressed = false,
+  }) => compressed
+      ? '!x $sinceId $sinceDeletion $compressFlag'
+      : '!x $sinceId $sinceDeletion';
+
+  static final RegExp _base64Part = RegExp(r'^[A-Za-z0-9+/]+={0,2}$');
+
+  /// Whether [chunk] can be a next DM of a compressed reply: base64 only.
+  static bool isCompressedPart(String chunk) => _base64Part.hasMatch(chunk);
+
+  static final RegExp _recordLine = RegExp(r'^\d+\|\d+\|');
+  static final RegExp _continuationLine = RegExp(r'^\+\d+\|');
+  static final RegExp _deletionLine = RegExp(r'^-\d+(?:,\d+)*$');
+
+  /// Whether a DM of the BBS node looks like part of a `!x` reply: a reply
+  /// header, or only record, `+`, `-` and `R|` lines in their exact
+  /// format. With [compressed] (a compressed `!x` was asked for) also a
+  /// base64 part; with [help] (`!h` was asked for) also a help reply. Used
+  /// to keep left-overs of an older reply out of the chat; `!r` and `!s`
+  /// replies (`2026-11-18 12:30 …`) do not match.
+  static bool looksLikeSyncData(
+    String text, {
+    bool compressed = false,
+    bool help = false,
+  }) {
+    if (text.isEmpty) return false;
+    if (text.startsWith('$syncHeaderTag|') ||
+        text.startsWith('$syncEchoHeaderTag|') ||
+        text.startsWith(compressedTag)) {
+      return true;
+    }
+    if (help && text.split('\n').first.trim() == 'BBS') return true;
+    if (compressed && text.length >= 16 && isCompressedPart(text)) return true;
+    return text
+        .split('\n')
+        .every(
+          (line) =>
+              _recordLine.hasMatch(line) ||
+              _continuationLine.hasMatch(line) ||
+              _deletionLine.hasMatch(line) ||
+              line.startsWith('R|'),
+        );
+  }
+
+  /// The text of a compressed reply from its first DMs, [reply] being the
+  /// DM texts joined with `\n` (the first starting with [compressedTag]).
+  /// Only whole lines are returned: the server ends every line with `\n`,
+  /// so a line is whole once its line feed arrived. `null` when [reply] is
+  /// not a compressed reply or inflating is not supported here. Throws
+  /// [FormatException] for a malformed reply.
+  static String? inflateSync(String reply) {
+    if (!reply.startsWith(compressedTag) || !BbsInflate.supported) {
+      return null;
+    }
+    final encoded = reply.substring(compressedTag.length).replaceAll('\n', '');
+    if (encoded.isNotEmpty && !_base64Part.hasMatch(encoded)) {
+      throw FormatException('Invalid compressed reply', reply);
+    }
+    final whole = encoded.length - encoded.length % 4;
+    final bytes = base64.decode(encoded.substring(0, whole));
+    final text = utf8.decode(
+      BbsInflate.inflatePrefix(bytes),
+      allowMalformed: true,
+    );
+    final end = text.lastIndexOf('\n');
+    return end < 0 ? '' : text.substring(0, end);
+  }
 
   /// Regions are not used by the app, so a post never carries one.
   static String postCommand(String abbreviation, String text) =>
@@ -129,14 +218,16 @@ class BbsProtocol {
   }
 
   /// Parses a `!x` reply, complete or cut short; `null` when [reply] does
-  /// not start with an `X1` header (for example the usage line). Throws
+  /// not start with an `X1` or `X2` header (for example the usage line).
+  /// A compressed reply is parsed after [inflateSync]. Throws
   /// [FormatException] for a malformed reply.
   static BbsSyncReply? parseSync(String reply) {
     final lines = reply.split('\n');
-    if (!lines.first.startsWith('$syncHeaderTag|')) return null;
+    final echo = lines.first.startsWith('$syncEchoHeaderTag|');
+    if (!echo && !lines.first.startsWith('$syncHeaderTag|')) return null;
 
     final header = lines.first.split('|');
-    if (header.length != 7) {
+    if (header.length != (echo ? 9 : 7)) {
       throw FormatException('Invalid sync header', lines.first);
     }
     final count = _number(header[2]);
@@ -206,6 +297,8 @@ class BbsProtocol {
         for (final text in recordTexts.values) _record(text.toString()),
       ],
       deletedIds: deletedIds,
+      requestSinceId: echo ? _number(header[7]) : null,
+      requestSinceDeletion: echo ? _number(header[8]) : null,
     );
   }
 
