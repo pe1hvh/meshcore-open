@@ -48,8 +48,43 @@ import 'theme/mesh_theme.dart';
 import 'utils/app_logger.dart';
 import 'widgets/image_send_codec_binding.dart';
 
+// DIAGNOSTIC (temporary): last startup step and errors before runApp.
+String _startupStep = 'start';
+final List<String> _startupErrors = [];
+bool _appStarted = false;
+
+void _step(String step) => _startupStep = step;
+
+void _showStartupDiagnostic() {
+  if (_appStarted) return;
+  runApp(
+    MaterialApp(
+      home: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(
+              'Startup stuck at: $_startupStep\n\n${_startupErrors.join('\n\n')}',
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // DIAGNOSTIC (temporary): show where startup hangs.
+  FlutterError.onError = (details) {
+    _startupErrors.add(details.exceptionAsString());
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    _startupErrors.add('$error\n$stack');
+    return false;
+  };
+  Timer(const Duration(seconds: 15), _showStartupDiagnostic);
 
   // On desktop, debugPrint is not suppressed in release builds and every
   // call is a synchronous stdout write. The connector logs heavily on hot
@@ -64,13 +99,16 @@ void main() async {
   // 10-14 in too so they lay out the same way under the bars. Flutter ignores
   // this mode before Android 10, where the old layout remains.
   if (PlatformInfo.isAndroid) {
+    _step('SystemChrome.setEnabledSystemUIMode');
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     // Android's scrolling screenshot ("Capture more") for Flutter lists.
     ScrollCaptureService.initialize();
   }
 
   // Initialize SharedPreferences cache
+  _step('PrefsManager.initialize');
   await PrefsManager.initialize();
+  _step('HistoryStore.initialize');
   await HistoryStore.initialize();
 
   // Initialize services
@@ -95,10 +133,12 @@ void main() async {
   // model registry and its "process automatically" default straight off
   // `appSettingsService.settings`, so this cannot stay where it used to be
   // (after the constructions) without those two starting out wrong.
+  _step('appSettingsService.loadSettings');
   await appSettingsService.loadSettings();
   // Re-check the automatic holiday theme when the date changes.
   appSettingsService.startDateWatch();
   // Undo a review-mode session the app was killed in before it could exit.
+  _step('endReviewModeSession');
   await endReviewModeSession(appSettingsService);
   final chatBackgroundService = ChatBackgroundService(appSettingsService);
   // Drop pictures left behind by removed backgrounds or abandoned edits.
@@ -169,22 +209,32 @@ void main() async {
     MessageUrlImageHelper.loadLinkImages.value =
         appSettingsService.settings.loadLinkImages;
   });
+  _step('notificationService.initialize');
   await notificationService.initialize();
+  _step('backgroundService.initialize');
   await backgroundService.initialize();
   backgroundService.setLanguageOverrideProvider(
     () => appSettingsService.settings.languageOverride,
   );
   _registerThirdPartyLicenses();
 
+  _step('chatTextScaleService.initialize');
   await chatTextScaleService.initialize();
+  _step('translationService.refreshDownloadedModels');
   await translationService.refreshDownloadedModels();
+  _step('imageCodecService.refreshDownloadedModels');
   await imageCodecService.refreshDownloadedModels();
+  _step('receivedImageStore.load');
   await receivedImageStore.load();
+  _step('uiViewStateService.initialize');
   await uiViewStateService.initialize();
+  _step('timeoutPredictionService.initialize');
   await timeoutPredictionService.initialize();
+  _step('messageFilterService.load');
   await messageFilterService.load();
 
   // Wire up connector with services
+  _step('connector.initialize');
   connector.initialize(
     retryService: retryService,
     pathHistoryService: pathHistoryService,
@@ -213,16 +263,21 @@ void main() async {
   // be opened) the app runs without the BBS screen.
   BbsSyncService? bbsSyncService;
   try {
+    _step('BbsStore.open');
     final bbsStore = await BbsStore.open();
     if (bbsStore != null) {
+      _step('BbsSyncService');
       bbsSyncService = BbsSyncService(connector, bbsStore);
     }
   } catch (error) {
     appLogger.warn('BBS database unavailable: $error');
   }
 
+  _step('connector.restoreLastRadio');
   await connector.restoreLastRadio();
 
+  _step('runApp');
+  _appStarted = true;
   runApp(
     MeshCoreApp(
       connector: connector,
@@ -246,6 +301,15 @@ void main() async {
       bbsSyncService: bbsSyncService,
     ),
   );
+  // DIAGNOSTIC (temporary): no first frame after runApp.
+  var firstFrame = false;
+  WidgetsBinding.instance.addPostFrameCallback((_) => firstFrame = true);
+  Timer(const Duration(seconds: 20), () {
+    if (firstFrame) return;
+    _appStarted = false;
+    _step('runApp done, no first frame');
+    _showStartupDiagnostic();
+  });
 }
 
 /// [ReceivedImageDecoder] over [ImageCodecService].
