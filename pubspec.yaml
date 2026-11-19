@@ -202,3 +202,12 @@ build_pipe:
             # Strongly recommended: disables the default service worker which often causes more cache headaches
             add_version_query_param: true
             # This is the key flag! It appends ?v=<your pubspec version> to bootstrap/JS files
+
+# jni 1.2.0 and jni_flutter 1.1.0 (released 18-11-2026, 23:00 UTC) make the
+# JNI-based path_provider_android hang at startup on Android
+# (ClassNotFoundException "Landroid/content/Context;"). pubspec.lock is not
+# in git, so every CI build resolves the newest versions: pin the last ones
+# that worked (BBS v0.3.0 APK) until a fixed jni release is out.
+dependency_overrides:
+  jni: 1.1.2
+  jni_flutter: 1.0.4+1
