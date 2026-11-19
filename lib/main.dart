@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/locale_tag.dart';
 import 'package:provider/provider.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 import 'review_mode/review_mode_storage.dart';
 import 'screens/chrome_required_screen.dart';
@@ -216,13 +215,7 @@ void main() async {
   try {
     final bbsStore = await BbsStore.open();
     if (bbsStore != null) {
-      final service = bbsSyncService = BbsSyncService(connector, bbsStore);
-      unawaited(
-        PackageInfo.fromPlatform().then(
-          (info) => service.appVersion = '${info.version}+${info.buildNumber}',
-          onError: (Object _) => service.appVersion,
-        ),
-      );
+      bbsSyncService = BbsSyncService(connector, bbsStore);
     }
   } catch (error) {
     appLogger.warn('BBS database unavailable: $error');
