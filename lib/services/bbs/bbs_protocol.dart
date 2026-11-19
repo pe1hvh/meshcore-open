@@ -94,12 +94,18 @@ class BbsSyncReply {
 }
 
 /// Commands and reply parsers for the meshcore-gui BBS (DM commands
-/// `!h`, `!x` and `!p`). A reply that spans several DMs is passed in as
+/// `!h x`, `!x` and `!p`). A reply that spans several DMs is passed in as
 /// the DM texts joined with `\n`.
 class BbsProtocol {
   BbsProtocol._();
 
-  static const String helpCommand = '!h';
+  /// Help with the delivery settings line (meshcore-gui 1.27.0); an older
+  /// BBS ignores the `x` and sends its plain help text.
+  static const String helpCommand = '!h x';
+
+  /// Start of the delivery settings line in the reply to [helpCommand].
+  static const String helpSettingsTag = 'X|';
+
   static const String syncHeaderTag = 'X1';
 
   /// Header tag inside a compressed reply: `X1` plus the request cursors.
@@ -193,12 +199,12 @@ class BbsProtocol {
   static final RegExp _postedId = RegExp(r'^Posted #(\d+) \[');
 
   /// Categories from a `!h` reply, in board order; `null` when [reply] is
-  /// not a BBS help text.
+  /// not a BBS help text. The delivery settings line is skipped.
   static List<BbsCategory>? parseHelp(String reply) {
     final lines = reply
         .split('\n')
         .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
+        .where((line) => line.isNotEmpty && !line.startsWith(helpSettingsTag))
         .toList();
     if (lines.isEmpty || lines.first != 'BBS') return null;
     final table = lines.length > 2 ? lines.last : '';
@@ -209,6 +215,52 @@ class BbsProtocol {
       for (final match in _abbreviationEntry.allMatches(table))
         BbsCategory(match.group(1)!, match.group(2)!.trim()),
     ];
+  }
+
+  /// Delivery settings from the `X|a=3,f=2,w=30,k=1.2` line of a `!h x`
+  /// reply; `null` when the reply has no such line. Unknown keys are
+  /// ignored; a missing or invalid value keeps its default. `announced` is
+  /// set.
+  static BbsDeliverySettings? parseHelpSettings(String reply) {
+    final line = reply
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.startsWith(helpSettingsTag))
+        .firstOrNull;
+    if (line == null) return null;
+    final values = <String, num>{};
+    for (final pair in line.substring(helpSettingsTag.length).split(',')) {
+      final separator = pair.indexOf('=');
+      if (separator <= 0) continue;
+      final value = num.tryParse(pair.substring(separator + 1).trim());
+      if (value != null && value.isFinite && value >= 0) {
+        values[pair.substring(0, separator).trim()] = value;
+      }
+    }
+    const fallback = BbsDeliverySettings.defaults;
+    final attempts = values['a'];
+    final floodAfter = values['f'];
+    final wait = values['w'];
+    final factor = values['k'];
+    return BbsDeliverySettings(
+      attempts:
+          attempts != null && attempts >= 1 && attempts == attempts.toInt()
+          ? attempts.toInt()
+          : fallback.attempts,
+      floodAfter:
+          floodAfter != null &&
+              floodAfter >= 1 &&
+              floodAfter == floodAfter.toInt()
+          ? floodAfter.toInt()
+          : fallback.floodAfter,
+      floodMinWait: wait != null
+          ? Duration(milliseconds: (wait * 1000).round())
+          : fallback.floodMinWait,
+      waitFactor: factor != null && factor >= 1
+          ? factor.toDouble()
+          : fallback.waitFactor,
+      announced: true,
+    );
   }
 
   /// Message id from the `!p` confirmation `Posted #<id> [<CAT>]: ...`.

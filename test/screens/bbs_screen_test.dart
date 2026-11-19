@@ -146,6 +146,13 @@ void main() {
           _bbsKey,
           BbsProtocol.parseHelp(guiHelp.join('\n'))!,
         );
+        await store.saveDelivery(
+          device,
+          _bbsKey,
+          BbsDeliverySettings.defaults.checked(
+            DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ),
+        );
         for (final reply in [guiSync00, guiSync100]) {
           await store.applySync(
             device,

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meshcore_open/models/bbs_board.dart';
 import 'package:meshcore_open/services/bbs/bbs_protocol.dart';
 import 'package:meshcore_open/storage/bbs_store_io.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -283,5 +284,91 @@ void main() {
     );
     expect(await upgraded.database.query('bbs_paths'), hasLength(1));
     await upgraded.close();
+  });
+
+  group('delivery settings', () {
+    const settings = BbsDeliverySettings(
+      attempts: 4,
+      floodAfter: 1,
+      floodMinWait: Duration(milliseconds: 45500),
+      waitFactor: 1.5,
+      announced: true,
+    );
+
+    test('are stored per board and read back', () async {
+      expect((await store.board(device, bbs))!.delivery, isNull);
+      await store.saveDelivery(device, bbs, settings);
+      expect((await store.board(device, bbs))!.delivery, settings);
+      // A sync does not touch them.
+      await store.applySync(device, bbs, sync(guiSync00), syncedAt: 0);
+      expect((await store.board(device, bbs))!.delivery, settings);
+    });
+
+    test('list the BBS nodes per radio', () async {
+      await store.saveDelivery('9999999999', 'cd' * 32, settings);
+      expect(await store.bbsKeys(device), [bbs]);
+      expect(await store.bbsKeys('9999999999'), ['cd' * 32]);
+    });
+
+    test('a version 1 database with boards gets both tables', () async {
+      final path = '${Directory.systemTemp.createTempSync().path}/bbs_v1b.db';
+      final v1 = await databaseFactoryFfiNoIsolate.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, _) => db.execute(
+            'CREATE TABLE bbs_boards ('
+            'device_key TEXT NOT NULL, bbs_key TEXT NOT NULL, '
+            "epoch TEXT NOT NULL DEFAULT '', "
+            "categories TEXT NOT NULL DEFAULT '[]', "
+            "retention TEXT NOT NULL DEFAULT '{}', "
+            'last_id INTEGER NOT NULL DEFAULT 0, '
+            'del_seq INTEGER NOT NULL DEFAULT 0, '
+            'last_sync INTEGER, '
+            'PRIMARY KEY (device_key, bbs_key))',
+          ),
+        ),
+      );
+      await v1.close();
+      final upgraded = await SqliteBbsStore.open(
+        path,
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      await upgraded.saveDelivery(device, bbs, settings);
+      expect((await upgraded.board(device, bbs))!.delivery, settings);
+      expect(await upgraded.database.query('bbs_paths'), isEmpty);
+      await upgraded.close();
+    });
+
+    test('a version 2 database gets the delivery column', () async {
+      final path = '${Directory.systemTemp.createTempSync().path}/bbs_v2.db';
+      final v2 = await databaseFactoryFfiNoIsolate.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 2,
+          onCreate: (db, _) => db.execute(
+            'CREATE TABLE bbs_boards ('
+            'device_key TEXT NOT NULL, bbs_key TEXT NOT NULL, '
+            "epoch TEXT NOT NULL DEFAULT '', "
+            "categories TEXT NOT NULL DEFAULT '[]', "
+            "retention TEXT NOT NULL DEFAULT '{}', "
+            'last_id INTEGER NOT NULL DEFAULT 0, '
+            'del_seq INTEGER NOT NULL DEFAULT 0, '
+            'last_sync INTEGER, '
+            'PRIMARY KEY (device_key, bbs_key))',
+          ),
+        ),
+      );
+      await v2.insert('bbs_boards', {'device_key': device, 'bbs_key': bbs});
+      await v2.close();
+      final upgraded = await SqliteBbsStore.open(
+        path,
+        factory: databaseFactoryFfiNoIsolate,
+      );
+      expect((await upgraded.board(device, bbs))!.delivery, isNull);
+      await upgraded.saveDelivery(device, bbs, settings);
+      expect((await upgraded.board(device, bbs))!.delivery, settings);
+      await upgraded.close();
+    });
   });
 }

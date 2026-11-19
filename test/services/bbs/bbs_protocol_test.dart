@@ -26,7 +26,7 @@ const longText =
 void main() {
   group('commands', () {
     test('build the DM texts', () {
-      expect(BbsProtocol.helpCommand, '!h');
+      expect(BbsProtocol.helpCommand, '!h x');
       expect(BbsProtocol.syncCommand(12, 3), '!x 12 3');
       expect(BbsProtocol.postCommand('U', 'Dijk lekt'), '!p U Dijk lekt');
     });
@@ -52,6 +52,54 @@ void main() {
     test('other text is not a help reply', () {
       expect(BbsProtocol.parseHelp('Hallo'), isNull);
       expect(BbsProtocol.parseHelp(''), isNull);
+    });
+  });
+
+  group('parseHelpSettings', () {
+    const help =
+        'BBS\n!p [cat] [text] | !r [cat] [1-5] | !s [cat] [query]\n'
+        'X|a=4,f=1,w=45,k=1.5\nU=URGENT S=STATUS';
+
+    test('reads the delivery settings line of !h x', () {
+      expect(
+        BbsProtocol.parseHelpSettings(help),
+        const BbsDeliverySettings(
+          attempts: 4,
+          floodAfter: 1,
+          floodMinWait: Duration(seconds: 45),
+          waitFactor: 1.5,
+          announced: true,
+        ),
+      );
+    });
+
+    test('the categories are read past the settings line', () {
+      expect(BbsProtocol.parseHelp(help), const [
+        BbsCategory('U', 'URGENT'),
+        BbsCategory('S', 'STATUS'),
+      ]);
+      expect(
+        BbsProtocol.parseHelp('BBS\n!p ...\nX|a=3,f=2,w=30,k=1.2'),
+        isEmpty,
+      );
+    });
+
+    test('unknown keys are ignored, invalid values keep their default', () {
+      expect(
+        BbsProtocol.parseHelpSettings('BBS\nX|a=0,f=1.5,w=x,k=0.5,z=9,q'),
+        const BbsDeliverySettings(announced: true),
+      );
+      expect(
+        BbsProtocol.parseHelpSettings('BBS\nX|w=12.5'),
+        const BbsDeliverySettings(
+          floodMinWait: Duration(milliseconds: 12500),
+          announced: true,
+        ),
+      );
+    });
+
+    test('a help text without the line gives null', () {
+      expect(BbsProtocol.parseHelpSettings(joined(guiHelp)), isNull);
     });
   });
 

@@ -20,6 +20,16 @@ abstract class BbsStore {
     List<BbsCategory> categories,
   );
 
+  /// Stores the delivery settings from a `!h x` reply.
+  Future<void> saveDelivery(
+    String deviceKey,
+    String bbsKey,
+    BbsDeliverySettings delivery,
+  );
+
+  /// Public keys of the BBS nodes this radio has a board of.
+  Future<List<String>> bbsKeys(String deviceKey);
+
   /// Applies a (possibly partial) `!x` reply: stores its records, removes
   /// deleted ids and advances the cursors. Returns `false` when the epoch
   /// changed: the local copy is then discarded and the sync must start

@@ -118,6 +118,9 @@ class _PendingReply {
   Duration _partTimeout = Duration.zero;
   bool _complete = false;
 
+  /// All parts of the reply arrived.
+  bool get isComplete => _complete;
+
   String get text => chunks.join('\n');
 
   /// The reply text to parse: inflated for a compressed reply (whole lines
@@ -328,7 +331,7 @@ class _PendingReply {
   void cancel() => _finish(chunks.isEmpty ? null : text);
 }
 
-/// Keeps the local copy of meshcore-gui BBS boards up to date with `!h`
+/// Keeps the local copy of meshcore-gui BBS boards up to date with `!h x`
 /// and `!x` over DM. Replies are taken from the connector before they reach
 /// the chat, so they cost no unread count or notification.
 ///
@@ -343,6 +346,26 @@ class BbsSyncService extends ChangeNotifier {
   BbsSyncService(this._connector, this._store) {
     _connector.addContactMessageInterceptor(_claim);
     _connector.addSendConfirmedInterceptor(_confirm);
+    _connector.addListener(_loadKnownBbs);
+    _loadKnownBbs();
+  }
+
+  /// Loads the BBS nodes of the connected radio once per radio.
+  void _loadKnownBbs() {
+    final device = deviceKey;
+    if (device == null || device == _knownBbsDevice) return;
+    _knownBbsDevice = device;
+    _knownBbs.clear();
+    unawaited(
+      _store
+          .bbsKeys(device)
+          .then((keys) {
+            if (_knownBbsDevice == device) _knownBbs.addAll(keys);
+          })
+          .catchError((Object error) {
+            appLogger.warn('BBS nodes not loaded: $error', tag: 'BBS');
+          }),
+    );
   }
 
   final MeshCoreConnector _connector;
@@ -351,27 +374,56 @@ class BbsSyncService extends ChangeNotifier {
   /// Attempts per request while the BBS node does not confirm it.
   static const int maxAttempts = 3;
 
-  /// Margin on the time the BBS needs to try a reply part three times: the
-  /// app can only estimate the timeout the radio of the BBS uses.
+  /// Margin on the time the BBS needs to try a reply part: the app can only
+  /// estimate the timeout the radio of the BBS uses.
   static const double retryWindowMargin = 1.25;
 
-  /// The time the BBS needs to try one reply part three times, with
-  /// [retryWindowMargin]: meshcore-gui waits its radio's timeout × 1.2 per
-  /// attempt; attempts 1 and 2 go along the known route ([direct]), attempt
-  /// 3 floods ([flood]).
+  /// The time the BBS needs to try one reply part, with [retryWindowMargin],
+  /// from its [delivery] settings (`!h x`): the first `floodAfter` attempts
+  /// go along the known route and wait [direct] × `waitFactor` each; the
+  /// rest flood and wait [flood] × `waitFactor`, at least `floodMinWait`.
   @visibleForTesting
-  static Duration retryWindow(Duration direct, Duration flood) => Duration(
-    milliseconds:
-        (1.2 *
-                (2 * direct.inMilliseconds + flood.inMilliseconds) *
-                retryWindowMargin)
-            .ceil(),
-  );
+  static Duration retryWindow(
+    Duration direct,
+    Duration flood, [
+    BbsDeliverySettings delivery = BbsDeliverySettings.defaults,
+  ]) {
+    final routed = delivery.floodAfter < delivery.attempts
+        ? delivery.floodAfter
+        : delivery.attempts;
+    final flooded = delivery.attempts - routed;
+    final floodWait = flood.inMilliseconds * delivery.waitFactor;
+    final perFlood = floodWait > delivery.floodMinWait.inMilliseconds
+        ? floodWait
+        : delivery.floodMinWait.inMilliseconds.toDouble();
+    return Duration(
+      milliseconds:
+          ((routed * direct.inMilliseconds * delivery.waitFactor +
+                      flooded * perFlood) *
+                  retryWindowMargin)
+              .ceil(),
+    );
+  }
+
+  /// How long delivery settings from `!h x` are used before a sync asks for
+  /// them again, so a change by the BBS operator reaches the app.
+  static const Duration deliveryRefresh = Duration(hours: 24);
+
+  /// Whether the delivery settings must be fetched (again) with `!h x`.
+  static bool _deliveryStale(BbsDeliverySettings? delivery) {
+    final checked = delivery?.checkedAt;
+    return checked == null ||
+        _nowSeconds - checked >= deliveryRefresh.inSeconds;
+  }
+
+  /// Version of the app for the log; set by `main.dart` at start.
+  String appVersion = 'unknown';
 
   /// `!x` requests per sync, a guard against a BBS that keeps resetting.
   static const int maxRounds = 100;
 
-  /// Replaces the path-based request timeout in tests.
+  /// Replaces the path-based request timeout in tests; the flood minimum
+  /// wait of the BBS is then left out of the reply window.
   @visibleForTesting
   Duration? replyTimeout;
 
@@ -393,6 +445,16 @@ class BbsSyncService extends ChangeNotifier {
   final Map<String, DateTime> _lastHelp = {};
   final Map<String, DateTime> _lastCompressed = {};
   final Map<String, Duration> _leftoverWindow = {};
+
+  /// The last sync reply per BBS that stayed incomplete (also without any
+  /// part): parts that still arrive after the request ended are added to it
+  /// and applied (v0.4.0).
+  final Map<String, _PendingReply> _lastPartial = {};
+
+  /// BBS nodes this radio has a board of; their sync data never reaches the
+  /// chat. Loaded from the store per radio, extended by every request.
+  final Set<String> _knownBbs = {};
+  String? _knownBbsDevice;
   final Set<String> _plainOnly = {};
   final Set<String> _posting = {};
 
@@ -489,9 +551,12 @@ class BbsSyncService extends ChangeNotifier {
 
   BbsSyncResult? lastResult(String bbsKey) => _lastResult[bbsKey];
 
-  /// Fetches new messages from [bbs]. Categories are fetched with `!h` when
-  /// [refreshCategories] is set, when none are known yet, or when the BBS
-  /// reports a category the app does not know. A second call while a sync
+  /// Fetches new messages from [bbs]. Categories are fetched with `!h x`
+  /// (also for the delivery settings) when [refreshCategories] is set, when
+  /// none are known yet, when the delivery settings are missing or older
+  /// than [deliveryRefresh], or when the BBS reports a category the app does
+  /// not know. When only the delivery settings were due, a lost `!h x` reply
+  /// does not stop the sync. A second call while a sync
   /// of the same BBS runs returns that sync.
   Future<BbsSyncResult> sync(Contact bbs, {bool refreshCategories = false}) {
     final key = bbs.publicKeyHex;
@@ -499,7 +564,11 @@ class BbsSyncService extends ChangeNotifier {
     if (running != null) return running;
     if (isPosting(key)) return Future.value(BbsSyncResult.failed);
     final future = _sync(bbs, refreshCategories)
-        .then((result) => _lastResult[key] = result)
+        .then((result) async {
+          _lastResult[key] = result;
+          await _logResult(bbs, result);
+          return result;
+        })
         .whenComplete(() {
           _running.remove(key);
           _progress.remove(key);
@@ -511,6 +580,24 @@ class BbsSyncService extends ChangeNotifier {
     return future;
   }
 
+  /// Logs the end of a sync with the cursor the next `!x` starts from.
+  Future<void> _logResult(Contact bbs, BbsSyncResult result) async {
+    final device = deviceKey;
+    BbsBoard? board;
+    try {
+      board = device == null
+          ? null
+          : await _store.board(device, bbs.publicKeyHex);
+    } on Object {
+      board = null;
+    }
+    appLogger.info(
+      'BBS sync ${bbs.name}: ${result.name}, next !x '
+      '${board?.lastId ?? 0} ${board?.deletionSeq ?? 0}',
+      tag: 'BBS',
+    );
+  }
+
   Future<BbsSyncResult> _sync(Contact bbs, bool refreshCategories) async {
     final device = deviceKey;
     if (device == null) return BbsSyncResult.failed;
@@ -518,8 +605,16 @@ class BbsSyncService extends ChangeNotifier {
     _storedIds[key] = {};
     try {
       var board = await _store.board(device, key) ?? const BbsBoard();
-      if (refreshCategories || board.categories.isEmpty) {
-        if (!await _fetchCategories(bbs, device)) return BbsSyncResult.noReply;
+      appLogger.info(
+        'BBS sync ${bbs.name}: start at !x ${board.lastId} '
+        '${board.deletionSeq} (app $appVersion)',
+        tag: 'BBS',
+      );
+      final needCategories = refreshCategories || board.categories.isEmpty;
+      if (needCategories || _deliveryStale(board.delivery)) {
+        if (!await _fetchCategories(bbs, device) && needCategories) {
+          return BbsSyncResult.noReply;
+        }
       }
       var categoriesChecked = false;
       for (var round = 0; round < maxRounds; round++) {
@@ -614,6 +709,19 @@ class BbsSyncService extends ChangeNotifier {
     final categories = text == null ? null : BbsProtocol.parseHelp(text);
     if (categories == null) return false;
     await _store.saveCategories(device, bbs.publicKeyHex, categories);
+    final delivery =
+        BbsProtocol.parseHelpSettings(text!) ?? BbsDeliverySettings.defaults;
+    await _store.saveDelivery(
+      device,
+      bbs.publicKeyHex,
+      delivery.checked(_nowSeconds),
+    );
+    appLogger.info(
+      'BBS delivery settings ${delivery.announced ? 'from BBS' : 'default'}: '
+      'a=${delivery.attempts} f=${delivery.floodAfter} '
+      'w=${delivery.floodMinWait.inSeconds}s k=${delivery.waitFactor}',
+      tag: 'BBS',
+    );
     return true;
   }
 
@@ -626,6 +734,24 @@ class BbsSyncService extends ChangeNotifier {
     );
   }
 
+  /// Delivery settings of the BBS [key] from the store; the defaults when
+  /// unknown. With [replyTimeout] (tests) the flood minimum wait is left out.
+  Future<BbsDeliverySettings> _deliveryFor(String key) async {
+    final device = deviceKey;
+    final stored = device == null
+        ? null
+        : (await _store.board(device, key))?.delivery;
+    final delivery = stored ?? BbsDeliverySettings.defaults;
+    if (replyTimeout == null) return delivery;
+    return BbsDeliverySettings(
+      attempts: delivery.attempts,
+      floodAfter: delivery.floodAfter,
+      floodMinWait: Duration.zero,
+      waitFactor: delivery.waitFactor,
+      announced: delivery.announced,
+    );
+  }
+
   /// Sends [command] and returns the reply text (all parts joined with
   /// `\n`, possibly partial), or `null` when no part arrived.
   ///
@@ -633,7 +759,7 @@ class BbsSyncService extends ChangeNotifier {
   /// repeat. The command is sent again (up to [attempts] times) only while
   /// neither the ACK of the BBS node nor a reply part arrived within the
   /// request timeout. After that each reply part may take [retryWindow]: the
-  /// time the BBS needs to try a part three times.
+  /// time the BBS needs to try a part, from its delivery settings.
   Future<String?> _request(
     Contact bbs,
     String command,
@@ -642,6 +768,10 @@ class BbsSyncService extends ChangeNotifier {
   }) async {
     final key = bbs.publicKeyHex;
     final timestamp = _nowSeconds;
+    // The new request starts from what was applied; an older broken-off
+    // reply is not continued any more.
+    _lastPartial.remove(key);
+    _knownBbs.add(key);
     _pending[key] = pending;
     if (pending.kind == _ReplyKind.help) _lastHelp[key] = DateTime.now();
     if (command.endsWith(' ${BbsProtocol.compressFlag}')) {
@@ -649,9 +779,14 @@ class BbsSyncService extends ChangeNotifier {
     }
     var window = Duration.zero;
     try {
+      final delivery = await _deliveryFor(key);
       for (var attempt = 0; attempt < attempts; attempt++) {
         final timeout = await _send(bbs, command, attempt, timestamp, pending);
-        window = retryWindow(timeout, replyTimeout ?? _floodTimeout(bbs));
+        window = retryWindow(
+          timeout,
+          replyTimeout ?? _floodTimeout(bbs),
+          delivery,
+        );
         if (await pending.waitForArrival(timeout)) break;
       }
       // Without arrival a `!p` is still awaited: it is never sent again, and
@@ -662,6 +797,16 @@ class BbsSyncService extends ChangeNotifier {
       pending.cancel();
       _expectedAcks.removeWhere((_, value) => identical(value, pending));
       if (identical(_pending[key], pending)) _pending.remove(key);
+      if (pending.kind == _ReplyKind.sync && !pending.isComplete) {
+        // Also without any part: the whole reply may still come, when the
+        // radio hands DMs over late.
+        _lastPartial[key] = pending;
+        appLogger.info(
+          'BBS reply incomplete after ${pending.chunks.length} part(s); '
+          'parts that still arrive are applied',
+          tag: 'BBS',
+        );
+      }
       _lastSeen[key] = pending.seen;
       _lastActivity[key] = DateTime.now();
       _leftoverWindow[key] = window;
@@ -696,6 +841,7 @@ class BbsSyncService extends ChangeNotifier {
         resuming ? BbsSyncStage.resuming : BbsSyncStage.requestSent,
       );
     }
+    appLogger.info('BBS → $command (try ${attempt + 1})', tag: 'BBS');
     await _connector.sendFrame(
       buildSendTextMsgFrame(
         bbs.publicKey,
@@ -714,7 +860,8 @@ class BbsSyncService extends ChangeNotifier {
         );
   }
 
-  /// The timeout of a flooded DM to [bbs], as the BBS's third attempt is.
+  /// The timeout of a flooded DM to [bbs], as the attempts of the BBS after
+  /// `floodAfter` are.
   Duration _floodTimeout(Contact bbs) => Duration(
     milliseconds: _connector.calculateTimeout(
       pathLength: -1,
@@ -734,6 +881,9 @@ class BbsSyncService extends ChangeNotifier {
     if (!pending.arrived && pending.chunks.isEmpty && key != null) {
       _setProgress(key, BbsSyncStage.waiting);
     }
+    if (!pending.arrived) {
+      appLogger.info('BBS request confirmed by the BBS node', tag: 'BBS');
+    }
     pending.markArrived();
     return true;
   }
@@ -751,11 +901,27 @@ class BbsSyncService extends ChangeNotifier {
         pending.seen.add(id);
         pending.add(message.text);
         _lastActivity[key] = DateTime.now();
+        appLogger.info(
+          'BBS part ${pending.chunks.length} received (${pending.kind.name})',
+          tag: 'BBS',
+        );
         if (pending.kind == _ReplyKind.sync) _onSyncPart(key, pending);
         return true;
       }
-    } else if (_lastSeen[key]?.contains(id) ?? false) {
-      return true;
+    } else {
+      if (_lastSeen[key]?.contains(id) ?? false) return true;
+      final partial = _lastPartial[key];
+      if (partial != null && partial.accepts(message.text)) {
+        partial.seen.add(id);
+        partial.add(message.text);
+        _lastActivity[key] = DateTime.now();
+        appLogger.info(
+          'BBS late part ${partial.chunks.length} received after the request',
+          tag: 'BBS',
+        );
+        _applyLate(key, partial);
+        return true;
+      }
     }
     if (_isSyncLeftover(key, message.text)) {
       appLogger.info('BBS: left-over sync DM dropped', tag: 'BBS');
@@ -765,9 +931,15 @@ class BbsSyncService extends ChangeNotifier {
   }
 
   /// A DM of the BBS node that looks like sync data but belongs to no
-  /// running reply, while a request runs or shortly after one: a part of an
-  /// older reply that was still on its way.
+  /// running reply: a part of an older reply that was still on its way.
+  /// From a BBS node this radio has a board of, a reply start (`Z1|`, `X1|`,
+  /// `X2|`) or record lines are sync data at any time, also long after the
+  /// last request (the radio may hand them over late). A base64 part, or a
+  /// help reply, counts only while a request runs or shortly after one.
   bool _isSyncLeftover(String key, String text) {
+    if (_knownBbs.contains(key) && BbsProtocol.looksLikeSyncData(text)) {
+      return true;
+    }
     final window = _leftoverWindow[key] ?? Duration.zero;
     bool within(DateTime? time) =>
         time != null && DateTime.now().difference(time) <= window;
@@ -788,6 +960,49 @@ class BbsSyncService extends ChangeNotifier {
     final previous = _applying[key] ?? Future<void>.value();
     // _applyPart never fails, so one bad part cannot block later ones.
     _applying[key] = previous.then((_) => _applyPart(key, pending));
+  }
+
+  /// Applies a part that arrived after its request ended: the whole records
+  /// so far, also of a reply that is now complete, so the next `!x` starts
+  /// after them.
+  void _applyLate(String key, _PendingReply partial) {
+    final previous = _applying[key] ?? Future<void>.value();
+    _applying[key] = previous.then((_) async {
+      final device = deviceKey;
+      if (device == null) return;
+      final BbsSyncReply? reply;
+      try {
+        reply = BbsProtocol.parseSync(partial.syncText);
+      } on Object {
+        return;
+      }
+      if (reply == null || !partial.matches(reply)) return;
+      try {
+        final board = await _store.board(device, key);
+        if (board != null &&
+            board.epoch.isNotEmpty &&
+            board.epoch != reply.epoch) {
+          _lastPartial.remove(key);
+          return;
+        }
+        final before = board?.lastId ?? 0;
+        if (reply.records.isNotEmpty || reply.isComplete) {
+          await _store.applySync(device, key, reply, syncedAt: _nowSeconds);
+        }
+        if (reply.isComplete && identical(_lastPartial[key], partial)) {
+          _lastPartial.remove(key);
+        }
+        final after = (await _store.board(device, key))?.lastId ?? before;
+        appLogger.info(
+          'BBS late part applied: last id $before → $after',
+          tag: 'BBS',
+        );
+        _revision[key] = revision(key) + 1;
+        notifyListeners();
+      } on Object catch (error) {
+        appLogger.warn('BBS late part not stored: $error', tag: 'BBS');
+      }
+    });
   }
 
   Future<void> _applyPart(String key, _PendingReply pending) async {
@@ -851,6 +1066,7 @@ class BbsSyncService extends ChangeNotifier {
   void dispose() {
     _connector.removeContactMessageInterceptor(_claim);
     _connector.removeSendConfirmedInterceptor(_confirm);
+    _connector.removeListener(_loadKnownBbs);
     for (final pending in _pending.values) {
       pending.cancel();
     }

@@ -24,7 +24,7 @@ Future<BbsStore?> createBbsStore() async {
 class SqliteBbsStore extends BbsStore {
   SqliteBbsStore._(this.database);
 
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
   static const _boardWhere = 'device_key = ? AND bbs_key = ?';
   final sqlite.Database database;
 
@@ -46,6 +46,7 @@ class SqliteBbsStore extends BbsStore {
             'last_id INTEGER NOT NULL DEFAULT 0, '
             'del_seq INTEGER NOT NULL DEFAULT 0, '
             'last_sync INTEGER, '
+            "delivery TEXT NOT NULL DEFAULT '', "
             'PRIMARY KEY (device_key, bbs_key))',
           );
           await db.execute(
@@ -64,6 +65,7 @@ class SqliteBbsStore extends BbsStore {
         },
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) await _createPaths(db);
+          if (oldVersion < 3) await _addDelivery(db);
         },
       ),
     );
@@ -78,6 +80,18 @@ class SqliteBbsStore extends BbsStore {
     'hash_width INTEGER NOT NULL, path BLOB NOT NULL, '
     'PRIMARY KEY (device_key, bbs_key, id))',
   );
+
+  /// Version 3: delivery settings from the `!h x` reply.
+  static Future<void> _addDelivery(sqlite.Database db) async {
+    final boards = await db.query(
+      'sqlite_master',
+      where: "type = 'table' AND name = 'bbs_boards'",
+    );
+    if (boards.isEmpty) return;
+    await db.execute(
+      "ALTER TABLE bbs_boards ADD COLUMN delivery TEXT NOT NULL DEFAULT ''",
+    );
+  }
 
   @override
   Future<BbsBoard?> board(String deviceKey, String bbsKey) =>
@@ -107,6 +121,11 @@ class SqliteBbsStore extends BbsStore {
       lastId: row['last_id'] as int,
       deletionSeq: row['del_seq'] as int,
       lastSync: row['last_sync'] as int?,
+      delivery: (row['delivery'] as String).isEmpty
+          ? null
+          : BbsDeliverySettings.fromJson(
+              jsonDecode(row['delivery'] as String) as Map<String, dynamic>,
+            ),
     );
   }
 
@@ -135,6 +154,32 @@ class SqliteBbsStore extends BbsStore {
       whereArgs: [deviceKey, bbsKey],
     );
   });
+
+  @override
+  Future<void> saveDelivery(
+    String deviceKey,
+    String bbsKey,
+    BbsDeliverySettings delivery,
+  ) => database.transaction((txn) async {
+    await _ensureBoard(txn, deviceKey, bbsKey);
+    await txn.update(
+      'bbs_boards',
+      {'delivery': jsonEncode(delivery.toJson())},
+      where: _boardWhere,
+      whereArgs: [deviceKey, bbsKey],
+    );
+  });
+
+  @override
+  Future<List<String>> bbsKeys(String deviceKey) async {
+    final rows = await database.query(
+      'bbs_boards',
+      columns: ['bbs_key'],
+      where: 'device_key = ?',
+      whereArgs: [deviceKey],
+    );
+    return [for (final row in rows) row['bbs_key'] as String];
+  }
 
   @override
   Future<bool> applySync(
