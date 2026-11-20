@@ -923,21 +923,49 @@ class BbsSyncService extends ChangeNotifier {
         return true;
       }
     }
-    if (_isSyncLeftover(key, message.text)) {
-      appLogger.info('BBS: left-over sync DM dropped', tag: 'BBS');
-      return true;
+    final leftover = _isSyncLeftover(key, message.text);
+    if (leftover || _knownBbs.contains(key)) {
+      appLogger.info(
+        leftover
+            ? 'BBS: left-over sync DM dropped (${_notTaken(key, message.text)})'
+            : 'BBS DM shown in chat (${_notTaken(key, message.text)})',
+        tag: 'BBS',
+      );
     }
-    return false;
+    return leftover;
+  }
+
+  /// Why a DM of the BBS [key] was not taken as a part of a reply, for the
+  /// log: which reply was waiting, how many parts it had, and what the DM
+  /// looks like (its start and length).
+  String _notTaken(String key, String text) {
+    final start = text.length > 12 ? '${text.substring(0, 12)}…' : text;
+    final shape =
+        '"$start" ${text.length} chars'
+        '${BbsProtocol.isCompressedPart(text) ? ', base64' : ''}';
+    final pending = _pending[key];
+    if (pending != null) {
+      return 'running ${pending.kind.name} reply with '
+          '${pending.chunks.length} part(s) does not take $shape';
+    }
+    final partial = _lastPartial[key];
+    if (partial != null) {
+      return 'broken-off reply with ${partial.chunks.length} part(s)'
+          '${partial.compressed ? ' (compressed)' : ''} does not take $shape';
+    }
+    return 'no running or broken-off reply for $shape';
   }
 
   /// A DM of the BBS node that looks like sync data but belongs to no
   /// running reply: a part of an older reply that was still on its way.
   /// From a BBS node this radio has a board of, a reply start (`Z1|`, `X1|`,
-  /// `X2|`) or record lines are sync data at any time, also long after the
-  /// last request (the radio may hand them over late). A base64 part, or a
-  /// help reply, counts only while a request runs or shortly after one.
+  /// `X2|`), record lines or a base64 part are sync data at any time, also
+  /// long after the last request (the radio may hand them over late). From
+  /// another node, and for a help reply, they count only while a request
+  /// runs or shortly after one.
   bool _isSyncLeftover(String key, String text) {
-    if (_knownBbs.contains(key) && BbsProtocol.looksLikeSyncData(text)) {
+    if (_knownBbs.contains(key) &&
+        BbsProtocol.looksLikeSyncData(text, compressed: true)) {
       return true;
     }
     final window = _leftoverWindow[key] ?? Duration.zero;

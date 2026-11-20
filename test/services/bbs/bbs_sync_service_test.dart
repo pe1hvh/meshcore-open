@@ -582,6 +582,41 @@ void main() {
       expect(radio.received.last, '!x 4 0');
     });
 
+    test('a late compressed part after one part is applied', () async {
+      service
+        ..compress = true
+        ..replyTimeout = const Duration(milliseconds: 100);
+      final chatBefore = chatTexts();
+      radio.replies
+        ..['!h x'] = guiHelp
+        ..['!x 0 0 z'] = guiZ00.take(1).toList();
+      expect(await service.sync(bbs), BbsSyncResult.incomplete);
+      await emit(guiZ00.skip(1).toList(), 1800006000);
+      expect(chatTexts(), chatBefore);
+      expect((await store.board(device, _bbsKeyHex))!.lastId, 11);
+    });
+
+    test(
+      'one late compressed part, long after the window, is applied',
+      () async {
+        service
+          ..compress = true
+          ..replyTimeout = const Duration(milliseconds: 100);
+        final chatBefore = chatTexts();
+        radio.replies
+          ..['!h x'] = guiHelp
+          ..['!x 0 0 z'] = guiZ00.take(1).toList();
+        expect(await service.sync(bbs), BbsSyncResult.incomplete);
+        await Future<void>.delayed(const Duration(seconds: 2));
+        await emit([guiZ00[1]], 1800006000);
+        expect(chatTexts(), chatBefore);
+        await Future<void>.delayed(const Duration(seconds: 2));
+        await emit([guiZ00[2]], 1800006001);
+        expect(chatTexts(), chatBefore);
+        expect((await store.board(device, _bbsKeyHex))!.lastId, 11);
+      },
+    );
+
     test('a whole compressed reply after the request is applied', () async {
       service
         ..compress = true
@@ -655,6 +690,9 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       final chatBefore = chatTexts();
       await emit([guiZ40.first, guiSync40.first], 1800004000);
+      expect(chatTexts(), chatBefore);
+      // A lone base64 part of an older compressed reply as well.
+      await emit([guiZ00[1]], 1800004050);
       expect(chatTexts(), chatBefore);
       await emit(['Gewoon bericht van de operator'], 1800004100);
       expect(chatTexts(), contains('Gewoon bericht van de operator'));
